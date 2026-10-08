@@ -1,0 +1,343 @@
+<title>蒼穹纏鬥</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Saira+Condensed:wght@500;600;700&family=Saira+Stencil+One&display=swap">
+<style>
+/* Layout: a full-bleed WebGL flight line; a kneeboard column docks left on wide screens and stacks under the hangar stage on phones. One committed dark look (Federal Standard aircraft grays + caution stencils). */
+:root {
+  --ground: #1b1f22;      /* FS 36118 gunship gray, darkened */
+  --panel: #262c31;
+  --panel-2: #303740;
+  --line: #3e4750;
+  --ghost: #a9b1b6;       /* FS 36375 light ghost gray */
+  --paper: #eceeea;
+  --caution: #f1b434;     /* stencil / caution yellow */
+  --rbf: #c62a2f;         /* remove-before-flight red */
+  --hud: #8dffb0;
+  --foe: #ff6a5c;
+  --ally: #6fb3ff;
+  --display: "Saira Stencil One", "Arial Black", Impact, sans-serif;
+  --label: "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
+  --mono: "B612 Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --s1: 12px; --s2: 14px; --s3: 16px; --s4: 20px; --s5: 28px; --s6: 44px;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--ground); color: var(--paper); font-family: var(--body); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+canvas#gl, canvas#hud { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+canvas#gl { z-index: 0; touch-action: none; }
+canvas#hud { z-index: 2; pointer-events: none; }
+body.flying canvas#gl { cursor: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--caution); outline-offset: 2px; }
+.lab { font-family: var(--label); font-weight: 600; font-size: var(--s1); letter-spacing: 0.16em; text-transform: uppercase; color: var(--caution); display: flex; gap: 8px; align-items: baseline; }
+.lab small { font-family: var(--body); letter-spacing: 0.06em; color: var(--ghost); font-size: var(--s1); font-weight: 500; text-transform: none; }
+.note { margin: 0; font-size: var(--s1); color: var(--ghost); line-height: 1.6; }
+.note.ok { color: var(--hud); }
+.note.err { color: #f2a08e; }
+
+/* ---------- main menu / hangar ---------- */
+.menu { position: fixed; inset: 0; z-index: 10; display: grid; grid-template-columns: minmax(320px, 392px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "brand hangar" "form hangar"; }
+.brand, .form { background: rgba(32, 37, 42, 0.94); border-right: 1px solid var(--line); padding-inline: 24px; }
+.brand { grid-area: brand; padding-block: 28px 8px; display: flex; flex-direction: column; gap: 10px; }
+.eyebrow { margin: 0; font-family: var(--label); font-weight: 600; font-size: var(--s2); letter-spacing: 0.32em; color: var(--caution); }
+.brand h1 { margin: 0; font-weight: 900; font-size: var(--s6); letter-spacing: 0.08em; line-height: 1.05; text-wrap: balance; }
+.brand h1 span { display: block; font-family: var(--display); font-weight: 400; font-size: var(--s3); letter-spacing: 0.34em; color: var(--ghost); margin-top: 6px; }
+.lede { margin: 0; font-size: var(--s2); line-height: 1.75; color: var(--ghost); max-width: 34em; }
+.form { grid-area: form; overflow-y: auto; padding-block: 12px 24px; display: flex; flex-direction: column; gap: 18px; scrollbar-width: thin; min-height: 0; }
+.form > * { flex-shrink: 0; }
+.field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.input { background: #171b1e; border: 1px solid var(--line); border-radius: 2px; padding: 10px 12px; font-size: var(--s3); width: 100%; }
+.input:focus-visible { border-color: var(--caution); outline: none; }
+#codeIn { font-family: var(--mono); font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; }
+#inviteBtn { align-self: flex-start; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.row > .input { flex: 1 1 auto; min-width: 0; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 30px; height: 30px; border-radius: 2px; border: 2px solid transparent; box-shadow: inset 0 0 0 2px rgba(0,0,0,.28); padding: 0; }
+.swatch[aria-pressed="true"] { border-color: var(--paper); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+.tab { background: transparent; border: 0; padding: 10px 8px; font-weight: 700; font-size: var(--s2); letter-spacing: 0.1em; color: var(--ghost); }
+.tab[aria-selected="true"] { background: var(--panel-2); color: var(--paper); box-shadow: inset 0 -3px 0 var(--caution); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 7px 12px; font-size: var(--s1); font-weight: 500; color: var(--ghost); }
+.seg button[aria-pressed="true"] { border-color: var(--caution); color: var(--paper); background: rgba(241,180,52,0.12); }
+.btn { background: transparent; border: 1px solid var(--ghost); border-radius: 2px; padding: 9px 14px; font-weight: 700; font-size: var(--s2); letter-spacing: 0.08em; color: var(--paper); white-space: nowrap; }
+.btn:hover { border-color: var(--paper); }
+.btn.solid { background: var(--paper); color: #15191c; border-color: var(--paper); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.rooms { display: flex; flex-direction: column; gap: 6px; }
+.room { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; text-align: left; background: #1d2226; border: 1px solid var(--line); border-radius: 2px; padding: 9px 12px; }
+.room:hover { border-color: var(--ghost); }
+.room b { font-family: var(--mono); letter-spacing: 0.2em; color: var(--paper); }
+.room span { font-size: var(--s1); color: var(--ghost); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room i { font-style: normal; font-family: var(--mono); font-size: var(--s1); color: var(--hud); }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 2px; }
+.stepper button { background: transparent; border: 0; width: 38px; height: 34px; font-size: var(--s4); color: var(--paper); }
+.stepper output { min-width: 40px; text-align: center; font-family: var(--mono); font-weight: 700; }
+
+/* remove-before-flight tag: the one loud element */
+.rbf { position: relative; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 4px 12px; width: 100%; background: var(--rbf); color: #fff; border: 0; border-radius: 3px; padding: 14px 18px 14px 14px; text-align: left; box-shadow: 0 10px 24px rgba(0,0,0,.35); transition: transform .12s ease, filter .12s ease; }
+.rbf::after { content: ""; position: absolute; inset: 5px; border: 1.5px dashed rgba(255,255,255,0.55); border-radius: 2px; pointer-events: none; }
+.rbf:hover { filter: brightness(1.07); }
+.rbf:active { transform: translateY(1px); }
+.grommet { grid-row: 1 / span 2; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--ground) 0 6px, #c9ccc8 7px 10px, #8f9491 11px 12px, transparent 13px); }
+.rbf-main { font-weight: 900; font-size: var(--s5); letter-spacing: 0.3em; line-height: 1; }
+.rbf-sub { font-family: var(--label); font-weight: 700; font-size: var(--s1); letter-spacing: 0.3em; opacity: 0.9; white-space: nowrap; }
+.rbf-sub { grid-column: 2 / span 2; }
+.rbf-side { grid-row: 1; grid-column: 3; font-family: var(--mono); font-weight: 700; font-size: var(--s2); letter-spacing: 0.12em; text-align: right; white-space: nowrap; }
+.rbf-side small { font-family: var(--body); font-weight: 500; letter-spacing: 0.04em; font-size: var(--s1); opacity: 0.85; margin-right: 6px; }
+.rbf:disabled { filter: grayscale(0.7) brightness(0.7); cursor: not-allowed; }
+details.controls { border-top: 1px solid var(--line); padding-top: 12px; }
+details.controls summary { cursor: pointer; font-family: var(--label); font-weight: 600; letter-spacing: 0.16em; color: var(--caution); font-size: var(--s1); }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 12px 0 0; font-size: var(--s1); color: var(--ghost); }
+.keys dt { font-family: var(--mono); color: var(--paper); white-space: nowrap; }
+.keys dd { margin: 0; }
+
+.hangar { grid-area: hangar; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top top" "stage spec" "chips spec"; gap: 12px 20px; padding: 22px 26px 22px; min-width: 0; min-height: 0; }
+.hangar-top { grid-area: top; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.era { display: inline-flex; border: 1px solid var(--line); border-radius: 2px; background: rgba(27,31,34,0.7); }
+.era button { background: transparent; border: 0; padding: 8px 14px; font-size: var(--s1); font-weight: 700; letter-spacing: 0.12em; color: var(--ghost); }
+.era button[aria-pressed="true"] { color: var(--paper); box-shadow: inset 0 -3px 0 var(--caution); }
+.drag-hint { font-size: var(--s1); color: var(--ghost); font-family: var(--label); letter-spacing: 0.14em; }
+.stage { grid-area: stage; position: relative; min-height: 200px; touch-action: none; cursor: grab; }
+.stage:active { cursor: grabbing; }
+.nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(27,31,34,0.75); font-size: var(--s4); color: var(--paper); }
+.nav.prev { left: 0; } .nav.next { right: 0; }
+.chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-end; min-width: 0; }
+.sheet .chips { grid-area: auto; }
+.chip { background: rgba(27,31,34,0.82); border: 1px solid var(--line); border-radius: 2px; padding: 7px 11px; font-size: var(--s1); font-weight: 500; color: var(--ghost); white-space: nowrap; }
+.chip[aria-pressed="true"] { color: #15191c; background: var(--paper); border-color: var(--paper); font-weight: 700; }
+.spec { grid-area: spec; align-self: end; max-height: 100%; overflow-y: auto; background: rgba(30,35,40,0.92); border: 1px solid var(--line); border-radius: 2px; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.spec .lab { justify-content: space-between; }
+.spec h2 { margin: 0; font-size: var(--s4); font-weight: 900; letter-spacing: 0.04em; text-wrap: balance; }
+.spec .en { font-family: var(--display); font-size: var(--s1); letter-spacing: 0.22em; color: var(--ghost); }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: var(--s1); }
+.facts dt { color: var(--ghost); }
+.facts dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 0; }
+.bars { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: center; font-size: var(--s1); color: var(--ghost); }
+.bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.bar i { height: 7px; background: #3a4249; }
+.bar i.on { background: var(--paper); }
+.spec p { margin: 0; font-size: var(--s1); line-height: 1.65; color: var(--ghost); }
+
+/* ---------- in flight ---------- */
+.topbar { position: fixed; z-index: 5; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 0; pointer-events: none; }
+.tag { pointer-events: auto; display: flex; gap: 10px; align-items: center; background: rgba(20,24,27,0.72); border: 1px solid rgba(62,71,80,0.8); border-radius: 2px; padding: 6px 10px; font-size: var(--s1); }
+.tag b { font-family: var(--mono); letter-spacing: 0.2em; }
+.tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hud); flex: none; }
+.tag .dot.warn { background: var(--caution); }
+.tag .dim { color: var(--ghost); }
+.tbtns { display: flex; gap: 8px; pointer-events: auto; }
+.tbtns .btn { background: rgba(20,24,27,0.72); padding: 7px 12px; font-size: var(--s1); }
+.toast { position: fixed; z-index: 7; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 96px); transform: translateX(-50%); max-width: calc(100% - 32px); background: rgba(20,24,27,0.88); border: 1px solid var(--line); border-left: 3px solid var(--caution); padding: 9px 14px; font-size: var(--s2); pointer-events: none; }
+.banner { position: fixed; z-index: 6; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; padding: 0 16px; }
+.banner b { display: block; font-weight: 900; font-size: clamp(26px, 5vw, 46px); letter-spacing: 0.1em; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.banner span { display: block; margin-top: 6px; font-family: var(--label); font-weight: 600; letter-spacing: 0.3em; color: var(--caution); font-size: var(--s2); }
+.overlay { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); overflow-y: auto; background: rgba(12,15,17,0.5); }
+.overlay.clear { background: transparent; pointer-events: none; }
+.overlay.clear > * { pointer-events: auto; }
+.sheet { width: 100%; max-width: 560px; background: rgba(32,37,42,0.97); border: 1px solid var(--line); border-radius: 2px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.45); }
+.sheet h2 { margin: 0; font-size: var(--s4); font-weight: 900; letter-spacing: 0.1em; }
+.sheet .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.death { max-width: 420px; text-align: center; align-items: center; }
+.death .big { font-size: var(--s5); font-weight: 900; letter-spacing: 0.08em; }
+.death .count { font-family: var(--mono); font-size: var(--s3); color: var(--caution); }
+.board { width: 100%; border-collapse: collapse; font-size: var(--s2); }
+.board th { text-align: left; font-family: var(--label); font-weight: 600; letter-spacing: 0.14em; color: var(--ghost); font-size: var(--s1); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.board td { padding: 6px 8px; border-bottom: 1px solid rgba(62,71,80,0.5); font-variant-numeric: tabular-nums; }
+.board td.num { font-family: var(--mono); text-align: right; }
+.board tr.me td { background: rgba(141,255,176,0.08); }
+.board .sw { display: inline-block; width: 9px; height: 9px; margin-right: 8px; vertical-align: middle; }
+.board-wrap { overflow-x: auto; }
+.teamsum { display: flex; gap: 18px; font-family: var(--mono); font-size: var(--s4); font-weight: 700; justify-content: center; }
+.range { width: 100%; accent-color: var(--caution); }
+.toggle { display: flex; gap: 10px; align-items: center; font-size: var(--s2); }
+.toggle input { accent-color: var(--caution); width: 18px; height: 18px; }
+.sheet-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sheet-actions .btn { flex: 1 1 140px; }
+
+/* touch controls */
+.touch { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+#stickArea { position: absolute; left: 0; bottom: 0; width: 46%; height: 70%; pointer-events: auto; touch-action: none; }
+#stickBase { position: fixed; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(236,238,234,0.35); background: rgba(20,24,27,0.25); pointer-events: none; }
+#stickKnob { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: rgba(236,238,234,0.45); }
+.tbtn { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(236,238,234,0.45); background: rgba(20,24,27,0.45); color: var(--paper); font-weight: 700; font-size: var(--s1); letter-spacing: 0.06em; }
+.tbtn.on { background: rgba(241,180,52,0.45); }
+#tGun { right: 22px; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); width: 86px; height: 86px; border-color: rgba(198,42,47,0.8); }
+#tMsl { right: 122px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); width: 62px; height: 62px; }
+#tFlare { right: 34px; bottom: calc(env(safe-area-inset-bottom, 0px) + 130px); width: 58px; height: 58px; }
+#tAB { right: 112px; bottom: calc(env(safe-area-inset-bottom, 0px) + 104px); width: 54px; height: 54px; }
+#tSwap { right: 40px; bottom: calc(env(safe-area-inset-bottom, 0px) + 200px); width: 46px; height: 46px; font-size: 11px; }
+.thr { position: absolute; right: 196px; bottom: calc(env(safe-area-inset-bottom, 0px) + 30px); pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--ghost); }
+.thr input { writing-mode: vertical-lr; direction: rtl; width: 30px; height: 104px; accent-color: var(--caution); }
+.rotate-hint { position: fixed; z-index: 9; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); text-align: center; font-size: var(--s1); color: var(--ghost); pointer-events: none; }
+
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .menu { position: fixed; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: max-content max-content max-content; grid-template-areas: "brand" "hangar" "form"; }
+  .brand, .form { border-right: 0; padding-inline: 16px; }
+  .brand { padding-block: calc(env(safe-area-inset-top, 0px) + 18px) 4px; }
+  .brand h1 { font-size: 34px; }
+  .lede { font-size: var(--s1); }
+  .hangar { padding: 8px 16px 12px; min-height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: max-content minmax(230px, 40vh) max-content max-content; grid-template-areas: "top" "stage" "chips" "spec"; }
+  .spec { max-height: none; overflow: visible; align-self: start; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .form { overflow: visible; padding-block: 8px calc(env(safe-area-inset-bottom, 0px) + 18px); }
+  .rbf-wrap { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 12; }
+  .form { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); }
+}
+@media (min-width: 901px) and (max-width: 1180px) {
+  .menu { grid-template-columns: minmax(300px, 330px) minmax(0, 1fr); }
+  .hangar { grid-template-columns: minmax(0, 1fr) minmax(230px, 260px); padding-inline: 18px; }
+  .brand h1 { font-size: 38px; }
+}
+@media (min-width: 901px) and (max-height: 760px) {
+  .spec p { display: none; }
+  .brand .lede { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<canvas id="gl" aria-label="空戰畫面"></canvas>
+<canvas id="hud" aria-hidden="true"></canvas>
+
+<main id="menu" class="menu">
+  <header class="brand">
+    <p class="eyebrow">MULTIPLAYER DOGFIGHT</p>
+    <h1>蒼穹纏鬥<span>SKY DOGFIGHT</span></h1>
+    <p class="lede">從 F-16V、經國號到噴火式，挑一架真實戰機，把邀請連結傳給同學，在群島上空纏鬥。雷達彈遠距鎖定、紅外線彈近身追擊，熱焰彈甩掉來襲飛彈。</p>
+  </header>
+
+  <section class="hangar" aria-label="選擇戰機">
+    <div class="hangar-top">
+      <div class="era" role="group" aria-label="時代">
+        <button type="button" id="eraJet" aria-pressed="true">噴射戰機</button>
+        <button type="button" id="eraProp" aria-pressed="false">二戰螺旋槳</button>
+      </div>
+      <span class="drag-hint">拖曳可旋轉機體</span>
+    </div>
+    <div id="stage" class="stage" aria-label="戰機預覽">
+      <button type="button" class="nav prev" id="prevAc" aria-label="上一架">‹</button>
+      <button type="button" class="nav next" id="nextAc" aria-label="下一架">›</button>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="戰機清單"></div>
+    <article class="spec" id="spec" aria-live="polite"></article>
+  </section>
+
+  <section class="form" aria-label="出擊設定">
+    <div class="field"><label class="lab" for="nameIn">Callsign <small>呼號</small></label><input id="nameIn" class="input" maxlength="12" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><span class="lab">Tail color <small>機尾顏色</small></span><div class="swatches" id="swatches"></div></div>
+    <div class="tabs" role="tablist" aria-label="遊戲方式">
+      <button type="button" class="tab" role="tab" id="tabOnline" aria-selected="true" aria-controls="panelOnline">聯機對戰</button>
+      <button type="button" class="tab" role="tab" id="tabPractice" aria-selected="false" aria-controls="panelPractice">單人練習</button>
+    </div>
+    <div id="panelOnline" role="tabpanel" aria-labelledby="tabOnline" class="field" style="gap:14px">
+      <div class="field">
+        <label class="lab" for="codeIn">Room code <small>房間代碼，朋友輸入同一組就會進同一場</small></label>
+        <div class="row"><input id="codeIn" class="input" maxlength="6" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="newCode">換一組</button></div>
+        <button type="button" class="btn" id="inviteBtn" hidden>複製邀請連結</button>
+      </div>
+      <div class="field"><span class="lab">Open rooms <small>正在進行的房間</small></span><div class="rooms" id="rooms"></div></div>
+      <p class="note" id="netNote">正在確認多人連線…</p>
+    </div>
+    <div id="panelPractice" role="tabpanel" aria-labelledby="tabPractice" class="field" style="gap:14px" hidden>
+      <div class="field"><span class="lab">Mode <small>模式</small></span><div class="seg" id="pMode"><button type="button" data-v="ffa" aria-pressed="true">個人混戰</button><button type="button" data-v="tdm" aria-pressed="false">紅藍對抗</button></div></div>
+      <div class="field"><span class="lab">AI pilots <small>AI 敵機數量</small></span><div class="stepper"><button type="button" id="botMinus" aria-label="減少">−</button><output id="botOut">3</output><button type="button" id="botPlus" aria-label="增加">＋</button></div></div>
+      <div class="field"><span class="lab">AI skill <small>AI 難度</small></span><div class="seg" id="pDiff"><button type="button" data-v="0" aria-pressed="false">新手</button><button type="button" data-v="1" aria-pressed="true">普通</button><button type="button" data-v="2" aria-pressed="false">王牌</button></div></div>
+      <div class="field"><span class="lab">Score to win <small>擊落幾架獲勝</small></span><div class="seg" id="pLim"><button type="button" data-v="5" aria-pressed="false">5</button><button type="button" data-v="10" aria-pressed="true">10</button><button type="button" data-v="20" aria-pressed="false">20</button></div></div>
+    </div>
+    <div class="rbf-wrap">
+      <button type="button" class="rbf" id="goBtn"><span class="grommet" aria-hidden="true"></span><span class="rbf-main" id="goMain">起飛</span><span class="rbf-side" id="goSide"><small>加入房間</small>249B</span><span class="rbf-sub" id="goSub">REMOVE BEFORE FLIGHT</span></button>
+    </div>
+    <details class="controls">
+      <summary>操作方式</summary>
+      <dl class="keys" id="keysList">
+        <dt>滑鼠</dt><dd>指向哪裡，飛機就自動轉向哪裡（點畫面鎖定游標，Esc 放開）</dd>
+        <dt>左鍵／空白鍵</dt><dd>機砲</dd>
+        <dt>右鍵／F</dt><dd>發射飛彈：先把目標放進準星外的虛線圈，鎖定完成（變紅菱形）再發射</dd>
+        <dt>Q／滾輪</dt><dd>切換雷達彈（遠）和紅外線彈（近）</dd>
+        <dt>E</dt><dd>熱焰彈：有冷卻時間，等飛彈快打到再放最有效</dd>
+        <dt>W／S</dt><dd>油門加減，Shift 按住開後燃器（燃料用完要等回充）</dd>
+        <dt>方向鍵</dt><dd>直接操縱：↑↓ 俯仰（↓ 拉起）、←→ 滾轉；A／D 方向舵</dd>
+        <dt>V／C</dt><dd>切換座艙視角／按住看後方</dd>
+        <dt>Tab</dt><dd>計分板；Esc 或 P 叫出選單</dd>
+        <dt>手機</dt><dd>左半邊拖曳當搖桿，右邊按鈕開火；建議橫放</dd>
+      </dl>
+    </details>
+  </section>
+</main>
+
+<div id="ingame" hidden>
+  <div class="topbar">
+    <div class="tag" id="roomTag"><span class="dot" id="netDot"></span><b id="roomCode">練習</b><span class="dim" id="roundInfo"></span></div>
+    <div class="tbtns"><button type="button" class="btn" id="inviteGame" hidden>邀請</button><button type="button" class="btn" id="boardBtn">計分</button><button type="button" class="btn" id="pauseBtn">選單</button></div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <div class="banner" id="banner" hidden><b id="bannerMain"></b><span id="bannerSub"></span></div>
+
+  <div class="overlay clear" id="deathOv" hidden>
+    <div class="sheet death">
+      <div class="lab" id="deathLab">SHOT DOWN</div>
+      <div class="big" id="deathMain">被擊落</div>
+      <div class="count" id="deathCount"></div>
+      <div class="sheet-actions" style="width:100%"><button type="button" class="btn" id="deathSwap">換一架戰機</button><button type="button" class="btn solid" id="deathGo">立即出擊</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="boardOv" hidden>
+    <div class="sheet">
+      <h2 id="boardTitle">計分板</h2>
+      <div class="teamsum" id="teamSum" hidden></div>
+      <div class="board-wrap"><table class="board"><thead><tr><th>飛行員</th><th>戰機</th><th style="text-align:right">擊落</th><th style="text-align:right">陣亡</th><th style="text-align:right" id="pingHead" hidden>連線</th></tr></thead><tbody id="boardBody"></tbody></table></div>
+      <p class="note" id="boardNote"></p>
+      <div class="sheet-actions" id="boardActions"><button type="button" class="btn" id="boardClose">關閉</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseOv" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <h2 id="pauseTitle">飛行選單</h2>
+      <p class="note" id="pauseNote"></p>
+      <div class="field"><span class="lab">Aircraft <small id="swapNote">下次出擊時換上</small></span><div class="chips" id="pauseChips" role="group" aria-label="更換戰機"></div></div>
+      <div class="field" id="teamField" hidden><span class="lab">Team <small>隊伍</small></span><div class="seg" id="teamSeg"><button type="button" data-v="1" aria-pressed="false">藍隊</button><button type="button" data-v="2" aria-pressed="false">紅隊</button></div></div>
+      <div class="field" id="hostField">
+        <span class="lab">Room rules <small id="hostNote">房主可調整</small></span>
+        <div class="grid2">
+          <div class="field"><span class="note">模式</span><div class="seg" id="rMode"><button type="button" data-v="ffa">個人混戰</button><button type="button" data-v="tdm">紅藍對抗</button></div></div>
+          <div class="field"><span class="note">時代</span><div class="seg" id="rEra"><button type="button" data-v="jet">噴射機</button><button type="button" data-v="prop">二戰</button></div></div>
+          <div class="field"><span class="note">擊落目標</span><div class="seg" id="rLim"><button type="button" data-v="5">5</button><button type="button" data-v="10">10</button><button type="button" data-v="20">20</button><button type="button" data-v="30">30</button></div></div>
+          <div class="field"><span class="note">AI 數量／難度</span><div class="row" style="flex-wrap:wrap"><div class="stepper"><button type="button" id="rBotMinus" aria-label="減少 AI">−</button><output id="rBotOut">0</output><button type="button" id="rBotPlus" aria-label="增加 AI">＋</button></div><div class="seg" id="rDiff"><button type="button" data-v="0">新手</button><button type="button" data-v="1">普通</button><button type="button" data-v="2">王牌</button></div></div></div>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lab">Controls <small>操作與畫面</small></span>
+        <div class="grid2">
+          <label class="field"><span class="note">滑鼠靈敏度</span><input type="range" class="range" id="sensIn" min="0.3" max="2.5" step="0.1"></label>
+          <label class="field"><span class="note">音量</span><input type="range" class="range" id="volIn" min="0" max="1" step="0.05"></label>
+          <div class="field"><span class="note">操縱方式</span><div class="seg" id="schemeSeg"><button type="button" data-v="mouse">滑鼠瞄準</button><button type="button" data-v="keys">純鍵盤</button></div></div>
+          <div class="field"><span class="note">畫質</span><div class="seg" id="qualSeg"><button type="button" data-v="1">流暢</button><button type="button" data-v="2">標準</button><button type="button" data-v="3">精緻</button></div></div>
+          <label class="toggle"><input type="checkbox" id="invIn">反轉上下</label>
+          <label class="toggle"><input type="checkbox" id="motionIn">減少畫面晃動</label>
+        </div>
+      </div>
+      <div class="sheet-actions"><button type="button" class="btn solid" id="resumeBtn">繼續飛行</button><button type="button" class="btn" id="leaveBtn">離開</button></div>
+    </div>
+  </div>
+
+  <div class="touch" id="touch" hidden>
+    <div id="stickArea"></div>
+    <div id="stickBase" hidden><div id="stickKnob"></div></div>
+    <button type="button" class="tbtn" id="tGun">機砲</button>
+    <button type="button" class="tbtn" id="tMsl">飛彈</button>
+    <button type="button" class="tbtn" id="tFlare">熱焰</button>
+    <button type="button" class="tbtn" id="tSwap">換彈</button>
+    <button type="button" class="tbtn" id="tAB">後燃</button>
+    <label class="thr"><input type="range" id="tThr" min="15" max="100" value="85" aria-label="油門">油門</label>
+  </div>
+  <p class="rotate-hint" id="rotateHint" hidden>橫放手機會比較好飛</p>
+</div>
+<!--SCRIPT-->
