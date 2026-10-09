@@ -66,7 +66,7 @@
 
 ## 3D 模型來源
 
-七架噴射機使用 Sketchfab 上的精細模型（已減面、移除放下的起落架、轉成遊戲格式放在 `models/`）。經國號和四架螺旋槳機仍是程式產生的模型。
+十架戰機和飛彈使用 Sketchfab 上的精細模型（已減面、移除放下的起落架、轉成遊戲格式放在 `models/`）。經國號和零戰是依三視圖重做的程式模型。
 
 | 戰機 | 模型 | 作者 | 授權 |
 |---|---|---|---|
@@ -77,8 +77,19 @@
 | 颱風 | [Eurofighter Typhoon - Fighter Jet - Free](https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579) | bohmerang | CC BY-NC-SA 4.0 |
 | 幻象 2000 | [Mirage 2000-5F](https://sketchfab.com/3d-models/mirage-2000-5f-3894c147f6474d5eb6308b8d2724a914) | Jeyhun1985 | CC BY 4.0 |
 | MiG-21 | [1972 MiG-21bis](https://sketchfab.com/3d-models/1972-mig-21bis-0fdbda95ec1a4121863fff5065c2fc51) | OUTPISTON | CC BY-NC-SA 4.0 |
+| P-51D | [P-51 Mustang](https://sketchfab.com/3d-models/p-51-mustang-4250635c2df54edc8c29f532bc5bac3b) | ACshibu | CC BY-NC 4.0 |
+| 噴火 Mk IX | [Isn'treal Spitfire Mk.IX (CW) (War Thunder)](https://sketchfab.com/3d-models/isntreal-spitfire-mkix-cw-war-thunder-eeb9f43ee3e243e4b1359ef544d45a53) | KojfDiscord | CC BY 4.0 |
+| Bf 109 | [BF 109 F-2 Messerschmitt](https://sketchfab.com/3d-models/bf-109-f-2-messerschmitt-e48914913f2140158bee87495916d64e) | GRIP420 | CC BY 4.0 |
 
-- 修改內容：轉正方向與比例、移除起落架與部分座艙內裝、MiG-21 拿掉翼下副油箱、減面、貼圖縮小並轉成 WebP、機尾頂端改成玩家顏色。
+| 飛彈 | 模型 | 作者 | 授權 |
+|---|---|---|---|
+| AIM-120 | [AIM-120C AMRAAM](https://sketchfab.com/3d-models/aim-120c-amraam-838fa923340a4d108e05c99bf0146ff6) | Jeyhun1985 | CC BY 4.0 |
+| AIM-9M、IRIS-T†、AIM-54、Super 530D、Meteor†、R-3R†、Magic† | [Missiles](https://sketchfab.com/3d-models/missiles-37899978144a45d0bd03c3538957b145)（AIM-9L、AIM-54C、Super R.530D、AIM-120D） | Civorsky | CC BY 4.0 |
+| R-27R、R-73、R-60† | [Russian weapon pack](https://sketchfab.com/3d-models/russian-weapon-pack-af00b7135a184ecfb2812a0e54458a8a) | Rhine_Lab_Muelsyse | CC BY 4.0 |
+
+† 沒有專屬模型的飛彈用外型相近的代替：IRIS-T、Magic、R-3R 用 AIM-9L，Meteor 用改成淺灰色的 AIM-120D，R-60 用縮小的 R-73。
+
+- 修改內容：轉正方向與比例、移除起落架、火箭與部分座艙內裝、MiG-21 拿掉翼下副油箱、幻象的 MICA 換成遊戲裡的 Super 530D、減面、貼圖縮小並轉成 WebP、舵面與螺旋槳拆成可動零件、機尾頂端改成玩家顏色。
 - 標示 NC 的模型不可用於商業用途；標示 SA 的模型，改作後的檔案（`models/typhoon.bin`、`models/mig21.bin`）同樣以 CC BY-NC-SA 4.0 釋出。
 - F-22 模型是 Sketchfab Standard 授權，只能作為作品的一部分使用，不可把模型檔單獨拿去散布。
 - 電腦比較慢的話，網址加 `?lowpoly` 改用簡易模型。

@@ -9,7 +9,7 @@ IDS = sys.argv[1:] or ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21']
 W, H = 1000, 640
 
 SETUP = '''() => { const d = window.__df;
-  d.Game.start('practice', { mode: 'ffa', lim: 99, era: 'jet', bots: 0, diff: 1 }); d.UI.enterFlight();
+  d.Game.start('practice', { mode: 'ffa', lim: 99, era: window.__era || 'jet', bots: 0, diff: 1 }); d.UI.enterFlight();
   window.__pose = [0, 0, 0]; window.__spd = 140; window.__sweep = null;
   const me = d.Game.me; me.invUntil = 0; me.pos.set(0, 3000, 0); me.q.ident();
   me.physics = function () { this.speed = window.__spd; this.vel.set(0, 0, -this.speed); this.rate.set(0, 0, 0); };
@@ -29,7 +29,7 @@ SETUP = '''() => { const d = window.__df;
 VIEWS = '''(id) => { const m = window.__df.HD.models[id], out = [], seen = {};
   if (!m) return out;
   m.bones.forEach((b, i) => { if (!b || b.side < 0 || seen[b.kind]) return; seen[b.kind] = 1; const p = b.pivot;
-    if (b.kind === 'stab' || b.kind === 'canard') { out.push({ name: b.kind + ' pitch up (side)', t: [p[0] + 0.8, p[1], p[2] + 0.6], o: [7, 0.6, 0], pose: [1, 0, 0] });
+    if (b.kind === 'stab' || b.kind === 'canard' || b.kind === 'elev') { out.push({ name: b.kind + ' pitch up (side)', t: [p[0] + 0.8, p[1], p[2] + 0.6], o: [7, 0.6, 0], pose: [1, 0, 0] });
       out.push({ name: b.kind + ' roll right (rear)', t: [p[0] * 0.5, p[1], p[2] + 0.8], o: [0, 1.2, 9], pose: [0, 1, 0] }); }
     else if (b.kind === 'elevon') { out.push({ name: 'elevon pitch up (side)', t: [p[0] + 1.0, p[1], p[2] + 0.4], o: [7, 0.6, 0], pose: [1, 0, 0] });
       out.push({ name: 'elevon roll right (rear)', t: [0, p[1], p[2] + 0.6], o: [0, 1.2, 10], pose: [0, 1, 0] }); }
@@ -49,7 +49,8 @@ async def main():
         await pg.goto('http://127.0.0.1:8765/test/game.html')
         await pg.wait_for_timeout(1200)
         for id in IDS:
-            await pg.evaluate("(id) => { const d = window.__df, U = d.UI; U.prefs.acJet = id; U.setEra('jet'); }", id)
+            await pg.evaluate("(id) => { const d = window.__df, U = d.UI, def = d.AC_DEFS.find(a => a.id === id); window.__era = def.era;"
+                              " if (def.era === 'jet') U.prefs.acJet = id; else U.prefs.acProp = id; U.setEra(def.era); }", id)
             for i in range(80):
                 st = await pg.evaluate("(id) => window.__df.HD.state[id]", id)
                 if st in ('ready', 'failed'): break

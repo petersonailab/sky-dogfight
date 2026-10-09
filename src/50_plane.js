@@ -27,6 +27,7 @@ class Plane {
     this.modelM = M4.create(); this.bones = new Float32Array(128); this.bones.set(IDENT_BONES);
     this.hdBones = new Float32Array(128); this.hdBones.set(IDENT_BONES); this.cs = new V3();
     this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, hdBones: this.hdBones, flash: 0 };
+    this.mslLook = { accent: ONE3, firedR: 0, firedI: 0, hdBones: null, flash: 0 }; this.si = null; this.siKey = '';
     this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
@@ -211,6 +212,7 @@ class Plane {
       switch (bn.kind) {
         case 'stab': ang = (-pi * 13 - bn.side * ri * 7) * DEG; break; // all-moving tail, also helps roll
         case 'canard': ang = pi * 13 * DEG; break;
+        case 'elev': ang = -pi * 20 * DEG; break; // hinged elevator behind a fixed tailplane
         case 'elevon': ang = (-pi * 12 - bn.side * ri * 14) * DEG; break; // delta wing: elevator + aileron in one
         case 'ail': ang = -bn.side * ri * 18 * DEG; break;
         case 'rud': ang = yi * 18 * DEG; break;
@@ -237,13 +239,45 @@ class Plane {
     if (this.alive && this.invuln(now) && Math.floor(now / 110) % 2 === 0) return;
     this.drawBody(false);
   }
-  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across
+  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across;
+  // close up, the missiles on the pylons are hi-detail models too (the simple ones are hidden then)
   drawBody(force) {
-    const hd = this.hd;
+    const hd = this.hd, L = this.look;
+    const si = force || this.bigOnScreen(this.model.radius, 60) ? this.storeInstances() : null;
+    const fr = L.firedR, fi = L.firedI;
     if (hd && (force || this.bigOnScreen(hd.radius, 5))) {
-      R.drawHD(hd, this.modelM, this.look);
-      if (hd.stores) R.drawPlane(hd.stores, this.modelM, this.look);
-    } else R.drawPlane(this.model.mesh, this.modelM, this.look);
+      R.drawHD(hd, this.modelM, L);
+      if (si) { L.firedR = 99; L.firedI = 99; }
+      if (hd.stores) R.drawPlane(hd.stores, this.modelM, L);
+    } else {
+      if (si) { L.firedR = 99; L.firedI = 99; }
+      R.drawPlane(this.model.mesh, this.modelM, L);
+    }
+    L.firedR = fr; L.firedI = fi;
+    if (si) {
+      const ml = this.mslLook; ml.flash = L.flash;
+      for (const it of si) {
+        if (it.ir ? it.slot - 20 <= fi : it.slot <= fr) continue;
+        M4.mul(STORE_M, this.modelM, it.M);
+        R.drawHD(it.hm.m, STORE_M, ml, it.hm.g0, it.hm.g1, it.hm.tint);
+      }
+    }
+  }
+  // where each hi-detail missile hangs (aircraft frame), cached per aircraft type and model; null until the
+  // missile library has loaded. The missile keeps the nose where the simple one had it and its top at the rail.
+  storeInstances() {
+    const hd = this.hd, d = this.def, key = (hd ? 'h:' : 'p:') + d.id;
+    if (this.siKey === key) return this.si;
+    const list = hd ? hd.storeList : this.model.stores, out = [];
+    for (const s of list || []) {
+      const ir = s.slot > 20, w = ir ? d.wI : d.wR, hm = w && HD.missile(w.m.id);
+      if (!hm) return null;
+      const M = M4.create(), rp = (MSL_DIM[s.k] || MSL_DIM.rad)[1];
+      M4.fromQP(M, IDENT_Q, _a.set(s.x, s.y + rp - hm.r, s.z + hm.len / 2), hm.sc);
+      out.push({ slot: s.slot, ir, hm, M });
+    }
+    this.si = out; this.siKey = key;
+    return out;
   }
   bigOnScreen(r, px) {
     const m = R.cam.vp, p = this.pos, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
@@ -263,15 +297,21 @@ class Plane {
     const thr = this.local ? this.ctrl.thr : 0.85, ab = this.abOn;
     const inten = ab ? 1 : clamp((thr - 0.55) * 0.9, 0, 0.4);
     if (inten <= 0.01) return;
+    const pal = FLAME_PAL[this.def.flame] || FLAME_PAL.us;
     for (const f of m.flames) {
       _a.set(f.p[0], f.p[1], f.p[2]).rot(this.q).add(this.pos);
       M4.fromQP(FLAME_M, this.q, _a);
-      const L = f.r * (ab ? 8.5 + Math.sin(now * 0.05) * 0.6 : 3.2);
-      R.drawFlame(SHARED.flame, FLAME_M, f.r * (ab ? 1.0 : 0.8), f.r * (ab ? 1.0 : 0.8), L, inten, 0);
+      // afterburner: long plume with shock diamonds ~1.3 plume diameters apart; dry: short, faint
+      const r = Math.max(f.r, 0.3), L = r * (ab ? 12.5 + Math.sin(now * 0.05) * 0.8 : 4.0), w = r * (ab ? 1.08 : 0.8);
+      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.6));
+      // the glowing nozzle seen from behind
+      _a.set(f.p[0], f.p[1], f.p[2] + 0.02).rot(this.q).add(this.pos);
+      M4.fromQP(FLAME_M, this.q, _a);
+      R.drawFlame(SHARED.disc, FLAME_M, f.r * 0.98, f.r * 0.98, 1, ab ? 0.85 : inten * 0.9, 2, pal);
     }
   }
 }
-const FLAME_M = M4.create();
+const FLAME_M = M4.create(), STORE_M = M4.create(), IDENT_Q = new Q();
 
 // ---------- steering assistant (mouse aim and AI) ----------
 // writes pitch/roll/yaw into ctrl so the aircraft turns toward `target` (world point)

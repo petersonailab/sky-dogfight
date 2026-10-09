@@ -18,7 +18,8 @@ async def main():
         # keep the camera still while we pose it
         await pg.evaluate("() => { const U = window.__df.UI; U.dragging = true; }")
         for id in IDS:
-            await pg.evaluate("(id) => { const d = window.__df, U = d.UI; U.prefs.acJet = id; U.setEra('jet'); }", id)
+            await pg.evaluate("(id) => { const d = window.__df, U = d.UI, def = d.AC_DEFS.find(a => a.id === id);"
+                              " if (def.era === 'jet') U.prefs.acJet = id; else U.prefs.acProp = id; U.setEra(def.era); U.ctrlOverride = [0, 0, 0, 140]; }", id)
             for i in range(80):
                 st = await pg.evaluate("(id) => window.__df.HD.state[id]", id)
                 if st in ('ready', 'failed'): break

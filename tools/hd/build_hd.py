@@ -63,9 +63,11 @@ CFG = {
                     bones=[dict(kind='canard', side=s, cbox=dict(x=(0.4, 2.2), z=(-6.3, -4.0), y=(-0.4, 0.45), sx=1.0), xsign=s) for s in (-1, 1)]),
     'm2000': dict(yaw=180, tex=1024, target=44000, err=0.01, opts=32, credit=dict(title='Mirage 2000-5F', author='Jeyhun1985', license='CC BY 4.0',
                                                                url='https://sketchfab.com/3d-models/mirage-2000-5f-3894c147f6474d5eb6308b8d2724a914'),
-                  glb_stores=[dict(k='rad', c=(-0.74, -1.04, -1.36), L=3.13), dict(k='rad', c=(0.74, -1.04, -1.36), L=3.13),
-                              dict(k='rad', c=(-0.95, -0.98, 2.8), L=3.11), dict(k='rad', c=(0.95, -0.98, 2.8), L=3.11),
-                              dict(k='ir', c=(-3.32, -1.0, 2.27), L=2.76), dict(k='ir', c=(3.32, -1.0, 2.27), L=2.76)],
+                  # the model's four MICAs make way for the game's Super 530D (hi-detail missile library); Magic IIs stay
+                  glb_drop=[dict(c=(-0.74, -1.04, -1.36), L=3.13), dict(c=(0.74, -1.04, -1.36), L=3.13),
+                            dict(c=(-0.95, -0.98, 2.8), L=3.11), dict(c=(0.95, -0.98, 2.8), L=3.11)],
+                  stores=[S('rad', -0.74, -1.36, rail=True), S('rad', 0.74, -1.36, rail=True), S('rad', -0.95, 2.8, rail=True), S('rad', 0.95, 2.8, rail=True)],
+                  glb_stores=[dict(k='ir', c=(-3.32, -1.0, 2.27), L=2.76), dict(k='ir', c=(3.32, -1.0, 2.27), L=2.76)],
                   bones=[dict(kind='elevon', side=s, cbox=dict(x=(0.8, 2.4), z=(3.7, 4.9), y=(-0.75, -0.3), sx=1.0, mintris=50), xsign=s) for s in (-1, 1)]),
     'mig21': dict(yaw=180, tex=1024, target=46000, credit=dict(title='1972 MiG-21bis', author='OUTPISTON', license='CC BY-NC-SA 4.0',
                                                                url='https://sketchfab.com/3d-models/1972-mig-21bis-0fdbda95ec1a4121863fff5065c2fc51'),
@@ -73,6 +75,28 @@ CFG = {
                   stores=[S('rad', -2.5, 1.0, rail=True), S('rad', 2.5, 1.0, rail=True), S('ir', -1.6, 1.2, pylon=True), S('ir', 1.6, 1.2, pylon=True)],
                   bones=[dict(kind='stab', side=s, cbox=dict(x=(0.4, 1.9), z=(3.8, 6.7), y=(0.05, 0.35), sx=1.0, mintris=50), xsign=s) for s in (-1, 1)]
                        + [dict(kind='ail', side=s, cbox=dict(x=(1.85, 3.1), z=(2.0, 2.8), y=(-0.15, 0.15), sx=0.9, mintris=50), xsign=s) for s in (-1, 1)]),
+    # ---- WWII ----
+    'p51': dict(yaw=180, pitch=-12.5, tex=1024, credit=dict(title='P-51 Mustang', author='ACshibu', license='CC BY-NC 4.0',
+                                               url='https://sketchfab.com/3d-models/p-51-mustang-4250635c2df54edc8c29f532bc5bac3b'),
+                rm_node=r'^(Gear|Tank)',
+                bones=[dict(kind='prop', side=0, node=r'^(Prop|Nose_)'),
+                       dict(kind='elev', side=-1, node=r'^Elevators', xsign=-1), dict(kind='elev', side=1, node=r'^Elevators', xsign=1),
+                       dict(kind='ail', side=-1, node=r'^LeftAileron'), dict(kind='ail', side=1, node=r'^RightAileron'),
+                       dict(kind='rud', side=0, node=r'^Rudder')]),
+    'spit': dict(yaw=180, tex=1024, target=46000, credit=dict(title="Isn'treal Spitfire Mk.IX (CW) (War Thunder)", author='KojfDiscord', license='CC BY 4.0',
+                                                              url='https://sketchfab.com/3d-models/isntreal-spitfire-mkix-cw-war-thunder-eeb9f43ee3e243e4b1359ef544d45a53'),
+                 rm_node=r'^Object_(4|5|6|9|10|11|12|13|14)$',          # rocket rails, rockets, bomb racks
+                 rm_comp=[dict(x=(0, 0.2), z=(3.2, 4.0), y=(-0.95, -0.5))],  # tail wheel
+                 bones=[dict(kind='prop', side=0, cbox=dict(x=(0, 1.0), z=(-5.0, -4.2), y=(-1.2, 0.8), mintris=100)),
+                        dict(kind='rud', side=0, cbox=dict(x=(0, 0.1), z=(3.4, 4.6), y=(0.0, 1.0), mintris=300)),
+                        dict(kind='elev', side=-1, cbox=dict(x=(0.3, 1.2), z=(3.4, 4.1), y=(-0.1, 0.1), sx=1.0, mintris=300), xsign=-1),
+                        dict(kind='elev', side=1, cbox=dict(x=(0.3, 1.2), z=(3.4, 4.1), y=(-0.1, 0.1), sx=1.0, mintris=300), xsign=1),
+                        dict(kind='ail', side=-1, cbox=dict(x=(3.3, 4.3), z=(-1.5, -0.6), y=(-0.9, -0.4), sx=1.5, mintris=100), xsign=-1),
+                        dict(kind='ail', side=1, cbox=dict(x=(3.3, 4.3), z=(-1.5, -0.6), y=(-0.9, -0.4), sx=1.5, mintris=100), xsign=1)]),
+    'bf109': dict(yaw=90, tex=2048, target=44000, credit=dict(title='BF 109 F-2 Messerschmitt', author='GRIP420', license='CC BY 4.0',
+                                                              url='https://sketchfab.com/3d-models/bf-109-f-2-messerschmitt-e48914913f2140158bee87495916d64e'),
+                  rm_mat=r'^Fake_Blades_Mat$',
+                  bones=[dict(kind='prop', side=0, joint=r'^(Rotor_02|Blades_04)$')]),
 }
 
 
@@ -82,7 +106,7 @@ def in_rng(v, r):
 
 def build(name):
     cfg = CFG[name]
-    js, binc, prims, info = to_game(name, yaw=cfg.get('yaw'))
+    js, binc, prims, info = to_game(name, yaw=cfg.get('yaw'), pitch=cfg.get('pitch', 0.0))
     nprim = len(prims)
     # ---------- part removal (triangle masks) ----------
     keep = [np.ones(len(p['tri']), bool) for p in prims]
@@ -100,7 +124,13 @@ def build(name):
             keep[i][:] = False  # fully transparent helper geometry
     V, F, G, lab, mn, mx, cnt = comp_table(prims)
     offs = np.cumsum([0] + [len(p['tri']) for p in prims])
+    # skinned models: the joint each triangle hangs on (for picking the propeller etc.)
+    TJ = np.concatenate([p['joint'][p['tri'][:, 0]] if p.get('joint') is not None else np.full(len(p['tri']), '', dtype=object) for p in prims]).astype(str)
+
     tri_keep = np.concatenate(keep)
+    if cfg.get('rm_joint'):
+        rj = re.compile(cfg['rm_joint'])
+        tri_keep &= ~np.array([bool(rj.search(j)) for j in TJ])
     ctr = (mn + mx) / 2; sz = mx - mn
     removed_comps = set()
     for rule in cfg.get('rm_comp', []):
@@ -115,6 +145,13 @@ def build(name):
             if 'ymaxmax' in rule and mx[c][1] > rule['ymaxmax']:
                 continue
             removed_comps.add(c)
+    # missiles that come with the model but are replaced by the game's own (same selection as glb_stores)
+    for st in cfg.get('glb_drop', []):
+        cx, cy, cz = st['c']; L = st['L']
+        for c in range(len(cnt)):
+            x, y, z = ctr[c]
+            if abs(x - cx) < 0.3 and abs(z - cz) < L / 2 + 0.25 and cy - 0.32 < y < cy + 0.1 and mx[c][1] < cy + 0.2:
+                removed_comps.add(c)
     if removed_comps:
         tri_keep &= ~np.isin(lab, list(removed_comps))
     # ---------- missiles that are part of the model: slots ----------
@@ -138,7 +175,7 @@ def build(name):
         print(f'  glb store {st["k"]} at {st["c"]}: {len(sel)} parts, {m.sum()} tris -> slot {slot}')
     # ---------- control surfaces: bone per triangle, hinge pivot + axis ----------
     tri_bone = np.zeros(len(F), np.uint8)
-    bone_meta = [None]
+    bone_meta = [None]; props = []
     cen = V[F].mean(axis=1)
     for bi, bc in enumerate(cfg.get('bones', []), start=1):
         m = np.zeros(len(F), bool)
@@ -148,11 +185,15 @@ def build(name):
                 names = p['path'].split('/')
                 if any(rn.search(n or '') for n in names) and (rm is None or rm.search(names[-1] or '')):
                     m[offs[i]:offs[i + 1]] = True
+        if 'joint' in bc:
+            rj = re.compile(bc['joint'])
+            m |= np.array([bool(rj.search(j)) for j in TJ])
         if 'cbox' in bc:
             cb = bc['cbox']; sel = []
             for c in range(len(cnt)):
                 x, y, z = ctr[c]
-                if in_rng(abs(x), cb['x']) and in_rng(z, cb['z']) and in_rng(y, cb['y']) and sz[c][0] >= cb.get('sx', 0) and cnt[c] >= cb.get('mintris', 8):
+                xx = x if cb.get('signed') else abs(x)
+                if in_rng(xx, cb['x']) and in_rng(z, cb['z']) and in_rng(y, cb['y']) and sz[c][0] >= cb.get('sx', 0) and cnt[c] >= cb.get('mintris', 8):
                     sel.append(c)
             m |= np.isin(lab, sel)
         if bc.get('xsign'):
@@ -169,7 +210,14 @@ def build(name):
             zf, zb = root[:, 2].min(), root[:, 2].max()
             pivot = [float(np.sign(P[:, 0].mean()) * x_in), float(root[:, 1].mean()), float(zf + 0.35 * (zb - zf))]
             axis = [1.0, 0.0, 0.0]
-        elif kind in ('ail', 'elevon', 'flap'):
+        elif kind == 'prop':
+            # spins about the fore-aft axis through the hub; also gives the blur disc (blade plane, radius)
+            cxy = [(P[:, 0].min() + P[:, 0].max()) / 2, (P[:, 1].min() + P[:, 1].max()) / 2]
+            rr = np.hypot(P[:, 0] - cxy[0], P[:, 1] - cxy[1]); rmax = float(rr.max())
+            zb = float(np.median(P[rr > 0.5 * rmax, 2]))
+            pivot = [0.0, float(cxy[1]), zb]; axis = [0.0, 0.0, 1.0]
+            props.append(dict(z=round(zb, 3), y=round(float(cxy[1]), 3), r=round(rmax, 3)))
+        elif kind in ('ail', 'elevon', 'flap', 'elev'):
             inner = P[ax_ <= x_in + 0.15 * span]; outer = P[ax_ >= x_out - 0.15 * span]
             A = inner[np.argmin(inner[:, 2])]; B = outer[np.argmin(outer[:, 2])]
             d = B - A; d /= np.linalg.norm(d)
@@ -258,7 +306,7 @@ def build(name):
     radius = float(np.linalg.norm(VK, axis=1).max())
     acc_y = float(VK[:, 1].max()) - cfg.get('band', 0.5)  # fin-tip band painted in the player's / team colour
     return dict(js=js, binc=binc, prims=prims, V=V, F=Fk, G=Gk, S=Sk, B=Bk, meta=dict(bones=bone_meta, 
-        flames=flames, tips=tips, stores=stores, launch=glb_launch, internal=cfg.get('internal'), radius=round(radius, 3), accY=round(acc_y, 3)), info=info)
+        flames=flames, tips=tips, stores=stores, launch=glb_launch, internal=cfg.get('internal'), radius=round(radius, 3), accY=round(acc_y, 3), props=props), info=info)
 
 
 def pot_floor(n):

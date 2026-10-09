@@ -258,9 +258,16 @@ const W = {
     else if (!m && boom && at) FX.explosion(at, 0.7);
   },
   drawMissiles() {
-    const look = { paint: SHARED.missilePaint, accent: null, firedR: 0, firedI: 0, bones: null, flash: 0 };
+    // shared look for missiles in flight (procedural mesh and hi-detail model)
+    const look = this.look || (this.look = { paint: SHARED.missilePaint, accent: ONE3, firedR: 0, firedI: 0, bones: null, hdBones: null, flash: 0 });
     for (const m of this.missiles) {
       if (!m.alive || !R.visible(m.pos, 4)) continue;
+      const hm = HD.missile(m.def.id);
+      if (hm && R.pxSize(m.pos, hm.len) > 6) { // hi-detail model once it is more than a few pixels long
+        M4.fromQP(MS_M, m.q, m.pos, hm.sc);
+        R.drawHD(hm.m, MS_M, look, hm.g0, hm.g1, hm.tint);
+        continue;
+      }
       const sc = m.def.shape === 'big' ? 1.35 : m.def.shape === 'ir' ? 0.82 : 1;
       M4.fromQP(MS_M, m.q, m.pos, sc);
       R.drawPlane(SHARED.missile, MS_M, look);

@@ -6,13 +6,16 @@ from glb import load_scene, material_info
 from frame import LEN, rot_y, rot_x, best_yaw
 from preview import tri_colors
 
-YAW = {'f16': 0, 'f22': 0, 'f14': 64, 'su27': 90, 'typhoon': 90, 'mig21': 180, 'm2000': 180}
+YAW = {'f16': 0, 'f22': 0, 'f14': 64, 'su27': 90, 'typhoon': 90, 'mig21': 180, 'm2000': 180, 'p51': 180, 'spit': 180, 'bf109': 90}
+# skinned models: joint poses to apply (Bf 109: its own 'FakeFly' animation pose = level attitude, gear folded)
+POSE = {'bf109': {'Gear_L_05': {'rotation': [0.7431, 0, 0, 0.6691]}, 'Gear_R_07': {'rotation': [-0.7431, 0, 0, 0.6691]},
+                  'Body_01': {'rotation': [0, 0.6996, 0, 0.7145]}}}
 
 
-def to_game(name, path=None, yaw=None):
+def to_game(name, path=None, yaw=None, pitch=0.0):
     path = path or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', f'{name}.glb')
-    js, binc, prims = load_scene(path)
-    R = rot_y(YAW[name] if yaw is None else yaw)
+    js, binc, prims = load_scene(path, pose=POSE.get(name))
+    R = rot_x(pitch) @ rot_y(YAW[name] if yaw is None else yaw)   # pitch: level a model posed on its wheels
     P = np.concatenate([p['pos'] for p in prims]) @ R.T
     # nose must be at -Z: the nose is the end where the fuselage is thinner and lower... use canopy heuristic:
     # the top-most points (canopy / fin) — fin is near the tail, so the z of the highest point tells us where the tail is.

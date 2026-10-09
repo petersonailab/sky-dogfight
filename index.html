@@ -684,12 +684,12 @@ void main(){
   // bone 0 = rigid airframe; 1..7 = control surfaces / swing wings, moved by uBones like the procedural models
   hd: {
     vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute float aBone; attribute vec2 aUV;
-uniform mat4 uModel; uniform mat4 uVP; uniform mat4 uBones[8]; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
+uniform mat4 uModel; uniform mat4 uVP; uniform mat4 uBones[8]; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired; uniform float uPropBone;
 varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
 void main(){
   float sl = aSlot;
   if ((sl > 0.5 && sl < 20.5 && sl < uFired.x + 0.5) || (sl > 20.5 && sl - 20.0 < uFired.y + 0.5)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vW = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vUV = vec2(0.0); vOY = -99.0; return; }
-  vec3 lp = uPC + aPos * uPH; vOY = lp.y;
+  vec3 lp = uPC + aPos * uPH; vOY = abs(aBone - uPropBone) < 0.5 ? -99.0 : lp.y; // propeller blades never get the fin-tip colour
   vec4 p = vec4(lp, 1.0); vec4 n = vec4(aNor, 0.0);
   if (aBone > 0.5) { mat4 B = uBones[int(aBone + 0.5)]; p = B * p; n = B * n; }
   vec4 w = uModel * p; vW = w.xyz; vN = (uModel * n).xyz; vUV = uUVO + aUV * uUVS;
@@ -771,19 +771,34 @@ varying vec4 vC; varying vec2 vUV; void main(){ vC = aCol; vUV = aUV; gl_Positio
     fs: GLSL_FRAG_HEAD + `varying vec4 vC; varying vec2 vUV;
 void main(){ float e = abs(vUV.y); float a = vC.a * (1.0 - smoothstep(0.2, 1.0, e)) * mix(0.2, 1.0, vUV.x); vec3 c = mix(vC.rgb, vec3(1.0, 0.97, 0.9), 1.0 - smoothstep(0.0, 0.45, e)); gl_FragColor = vec4(c * a, a * 0.55); }`,
   },
+  // afterburner plume along +z (unit cone), prop blur disc (mode 1) and glowing nozzle disc (mode 2).
+  // Colours per engine family: c0 white-hot core, c1 plume, c2 tail, c3 nozzle ring; shock diamonds along the core.
   flame: {
-    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL;
-void main(){ vL = aPos; gl_Position = uVP * (uModel * vec4(aPos * uScl, 1.0)); }`,
-    fs: GLSL_FRAG_HEAD + `varying vec3 vL; uniform float uInt; uniform float uMode; uniform float uTime;
+    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL; varying vec3 vW; varying vec3 vN;
+void main(){ vL = aPos; vec4 w = uModel * vec4(aPos * uScl, 1.0); vW = w.xyz;
+  vN = normalize((uModel * vec4(aPos.x, aPos.y, 0.0, 0.0)).xyz + vec3(1e-5)); gl_Position = uVP * w; }`,
+    fs: GLSL_FRAG_HEAD + `varying vec3 vL; varying vec3 vW; varying vec3 vN; uniform float uInt; uniform float uMode; uniform float uTime; uniform vec3 uCam;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia;
 void main(){
+  if (uMode > 1.5) { // nozzle glow seen from behind: white-hot centre, coloured ring
+    float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.55, r);
+    vec3 col = mix(uC0, uC3, smoothstep(0.05, 0.85, r));
+    gl_FragColor = vec4(col * a, a); return; }
   if (uMode > 0.5) { float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.75, r) * smoothstep(0.12, 0.35, r) * (0.75 + 0.25 * sin(r * 40.0));
     gl_FragColor = vec4(vec3(0.32) * a * 0.22, a * 0.22); return; }
-  float z = vL.z; float r = length(vL.xy);
-  float dia = 0.5 + 0.5 * sin(z * 26.0 - 1.2);
-  vec3 col = mix(vec3(1.0, 0.96, 0.86), vec3(1.0, 0.5, 0.14), smoothstep(0.08, 0.75, z));
-  col = mix(col, vec3(0.5, 0.65, 1.0), (1.0 - smoothstep(0.0, 0.22, z)) * 0.45 * (1.0 - r));
-  float a = uInt * (1.0 - z) * (0.55 + 0.45 * dia * (1.0 - z)) * (1.0 - 0.55 * r) * (0.85 + 0.15 * sin(uTime * 60.0 + z * 9.0));
-  gl_FragColor = vec4(col * a, a);
+  float z = vL.z;
+  vec3 V = normalize(uCam - vW);
+  float face = abs(dot(normalize(vN), V));            // 1 where we look through the middle of the plume
+  float core = pow(face, 1.6);
+  float cell = fract(z * uDia + 0.35);                 // shock diamonds: bright knots at regular spacing
+  float dia = exp(-pow((cell - 0.5) * 3.2, 2.0)) * (1.0 - smoothstep(0.2, 0.9, z));
+  float hot = core * (1.0 - smoothstep(0.0, 0.3, z));
+  vec3 col = mix(uC1, uC0, clamp(hot * 0.85 + dia * core * 0.85, 0.0, 1.0));
+  col = mix(col, uC2, smoothstep(0.3, 1.0, z) * (1.0 - core * 0.4));
+  float fade = pow(1.0 - z, 1.1);
+  // kept below saturation so the knots still read as brighter bands
+  float a = uInt * fade * (0.3 + 0.7 * core) * (0.5 + 0.95 * dia) * 0.78 * (0.92 + 0.08 * sin(uTime * 61.0 + z * 11.0));
+  gl_FragColor = vec4(col * a, a * 0.55);              // partly 'over' so the colour survives against a bright sky
 }`,
   },
 };
@@ -931,6 +946,11 @@ const R = {
     out.on = out.x > -40 && out.x < this.cssW + 40 && out.y > -40 && out.y < this.cssH + 40;
     return true;
   },
+  // on-screen size (CSS px) of something r metres across at p; large when the camera is right next to it
+  pxSize(p, r) {
+    const m = this.cam.vp, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+    return w <= 1 ? 1e4 : r * this.cam.px / w;
+  },
   // sphere visibility test
   visible(p, r) {
     const m = this.cam.vp;
@@ -969,11 +989,13 @@ const R = {
     gl.uniform1f(u.uFlash, look.flash || 0);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
   },
-  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes)
-  drawHD(m, model, look) {
+  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes).
+  // g0..g1 picks a range of groups (one missile out of the missile library); tint multiplies the colour.
+  drawHD(m, model, look, g0, g1, tint) {
     const gl = this.gl, p = this.use(this.P.hd), u = p.u, a = p.a;
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniformMatrix4fv(u.uBones, false, look.hdBones || IDENT_BONES);
+    gl.uniform1f(u.uPropBone, m.propBone === undefined ? -1 : m.propBone);
     gl.uniform3fv(u.uPC, m.pc); gl.uniform3fv(u.uPH, m.ph);
     gl.uniform2fv(u.uUVO, m.uvo); gl.uniform2fv(u.uUVS, m.uvs);
     gl.uniform2f(u.uFired, look.firedR || 0, look.firedI || 0);
@@ -992,13 +1014,17 @@ const R = {
     const it = m.idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, isz = m.idx32 ? 4 : 2;
     let blend = false;
     gl.disable(gl.BLEND); gl.depthMask(true);
-    for (const g of m.groups) {
+    const a0 = g0 || 0, a1 = g1 === undefined ? m.groups.length : g1;
+    for (let gi = a0; gi < a1; gi++) {
+      const g = m.groups[gi];
       if (g.mode === 2 && !blend) { blend = true; gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
       if (g.double) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
       const t = g.tex >= 0 ? m.tex[g.tex] : null;
       gl.uniform1f(u.uHasTex, t ? 1 : 0);
       if (t) gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.uniform4fv(u.uColor, g.color); gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
+      if (tint) { const c = TINT4; c[0] = g.color[0] * tint[0]; c[1] = g.color[1] * tint[1]; c[2] = g.color[2] * tint[2]; c[3] = g.color[3]; gl.uniform4fv(u.uColor, c); }
+      else gl.uniform4fv(u.uColor, g.color);
+      gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
       gl.uniform2fv(u.uMat, g.mat);
       gl.drawElements(gl.TRIANGLES, g.count, it, g.start * isz);
     }
@@ -1027,18 +1053,27 @@ const R = {
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
-  drawFlame(mesh, model, sx, sy, sz, intensity, mode) {
+  // mode 0: plume (additive), 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }; dia = shock diamonds per plume length
+  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia) {
     const gl = this.gl, p = this.use(this.P.flame), u = p.u;
     gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
-    if (mode) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); else gl.blendFunc(gl.ONE, gl.ONE);
+    if (mode === 2) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform3f(u.uScl, sx, sy, sz); gl.uniform1f(u.uInt, intensity); gl.uniform1f(u.uMode, mode || 0);
+    const P = pal || FLAME_PAL.us;
+    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3); gl.uniform1f(u.uDia, dia || 3);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
 };
 const IDENT = M4.create();
 const ONE3 = new Float32Array([1, 1, 1]);
+const TINT4 = new Float32Array(4);
+// afterburner colours: Western engines burn orange-red, Soviet/Russian ones blue (with the white-hot core and a reddish nozzle ring)
+const FLAME_PAL = {
+  us: { c0: new Float32Array([1.0, 0.94, 0.78]), c1: new Float32Array([1.0, 0.52, 0.14]), c2: new Float32Array([0.85, 0.16, 0.04]), c3: new Float32Array([1.0, 0.42, 0.2]) },
+  ru: { c0: new Float32Array([0.86, 0.93, 1.0]), c1: new Float32Array([0.32, 0.55, 1.0]), c2: new Float32Array([0.38, 0.24, 0.9]), c3: new Float32Array([1.0, 0.36, 0.42]) },
+};
 const IDENT_BONES = (() => { const a = new Float32Array(128); for (let i = 0; i < 8; i++) { a[i * 16] = a[i * 16 + 5] = a[i * 16 + 10] = a[i * 16 + 15] = 1; } return a; })();
 
 // ---- 20_mesh.js ----
@@ -1382,7 +1417,7 @@ const AC_DEFS = [
     },
   },
   {
-    id: 'su27', era: 'jet', name: 'Su-27 側衛', en: 'SU-27 FLANKER', country: '蘇聯／俄羅斯', first: 1977, len: 21.9, span: 14.7,
+    id: 'su27', era: 'jet', name: 'Su-27 側衛', en: 'SU-27 FLANKER', country: '蘇聯／俄羅斯', first: 1977, len: 21.9, span: 14.7, flame: 'ru',
     gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高，熱焰彈冷卻也最短。',
     paint: { pattern: 2, top: '#9fb3c4', bot: '#c2d0da', c2: '#7f9db7', c3: '#b6c6d1', scale: 0.36, rad: '#d3d8cf', radZ: 1.9, glass: '#2c3a48', metal: 0.05, gloss: 0.3, },
     st: { hp: 297, vab: 1496, vmax: 947, vtab: 780, vt: 506, vc: 846, vr: 180, vs: 288, vcl: 598, aab: 43, acc: 27, wb: 37, wh: 16, roll: 180, resp: 6,
@@ -1480,36 +1515,42 @@ const AC_DEFS = [
   {
     id: 'idf', era: 'jet', name: 'F-CK-1 經國號', en: 'F-CK-1 CHING-KUO', country: '中華民國', first: 1989, len: 14.21, span: 9.46,
     gun: 'M61A1 20 mm 機砲', note: '臺灣自製的雙發防禦戰機，兩側進氣口加翼端飛彈。轉向和 F-16 一樣利落，機體更耐打、加速更快。',
-    paint: { pattern: 1, top: '#9aa2a8', bot: '#b4babe', c2: '#8b949a', c3: '#a8afb4', scale: 0.25, rad: '#7b8286', radZ: 1.6, glass: '#2e3a44', metal: 0.06, gloss: 0.34 },
+    paint: { pattern: 1, top: '#9aa2a8', bot: '#b4babe', c2: '#8b949a', c3: '#a8afb4', scale: 0.25, rad: '#6f767b', radZ: 1.3, glass: '#2e3a44', metal: 0.06, gloss: 0.34 },
     st: { hp: 200, vab: 1400, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 38, wb: 41, wh: 15, roll: 240, resp: 8,
       abFuel: 14.4, abRegen: 12.0, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
+      // after the AIDC three-view: drooped radome with a long pitot, bubble canopy, kidney intakes under long LERX,
+      // wide twin-engine rear fuselage, slightly forward-swept wing trailing edge, swept fin and all-moving tail
+      a.mat(MAT.GRAY); a.b.cyl([0, -0.6, -0.92], [0, -0.6, 0.06], 0.014, 0.03, { seg: 6 }); a.mat(MAT.PAINT);
       a.body([
-        { z: 0, w: 0.03, h: 0.03, y: 0.05 }, { z: 0.6, w: 0.22, h: 0.22, y: 0.05 }, { z: 1.6, w: 0.42, h: 0.42, y: 0.05 },
-        { z: 2.8, w: 0.54, h: 0.54, hb: 0.5, y: 0.05 }, { z: 4.4, w: 0.6, h: 0.6, hb: 0.56, y: 0.05 }, { z: 6.4, w: 0.7, h: 0.6, hb: 0.58, n: 2.4 },
-        { z: 9.0, w: 0.8, h: 0.56, hb: 0.55, n: 2.8 }, { z: 11.5, w: 0.82, h: 0.5, hb: 0.48, n: 3 }, { z: 13.3, w: 0.8, h: 0.46, hb: 0.44, n: 3 },
+        { z: 0, w: 0.03, h: 0.03, y: -0.6 }, { z: 0.6, w: 0.2, h: 0.17, y: -0.52 }, { z: 1.25, w: 0.37, h: 0.26, y: -0.42 },
+        { z: 2.0, w: 0.45, h: 0.36, y: -0.33 }, { z: 2.8, w: 0.47, h: 0.42, hb: 0.44, y: -0.22 }, { z: 4.0, w: 0.5, h: 0.46, hb: 0.46, y: -0.18, n: 2.2 },
+        { z: 5.5, w: 0.58, h: 0.64, hb: 0.62, y: -0.1, n: 2.4 }, { z: 7.0, w: 0.68, h: 0.56, hb: 0.6, y: -0.16, n: 2.6 },
+        { z: 9.0, w: 0.9, h: 0.58, hb: 0.6, y: -0.16, n: 2.8 }, { z: 10.6, w: 1.0, h: 0.6, hb: 0.6, y: -0.12, n: 3 },
+        { z: 11.8, w: 0.98, h: 0.52, hb: 0.52, y: -0.06, n: 3 }, { z: 12.7, w: 0.84, h: 0.42, hb: 0.42, y: -0.04, n: 3 },
+        { z: 13.35, w: 0.66, h: 0.33, hb: 0.33, y: -0.03, n: 3 },
       ]);
       for (const s of [1, -1]) {
-        a.loft([{ z: 5.0, w: 0.3, h: 0.46, hb: 0.4, y: -0.3, n: 2.2 }, { z: 6.2, w: 0.34, h: 0.5, y: -0.3 }, { z: 8.8, w: 0.3, h: 0.42, y: -0.25 }], { x: 0.86 * s, cap0: false, seg: 14 });
-        a.face([0.86 * s, -0.32, 5.08], 0.26, 0.38);
+        a.loft([{ z: 4.9, w: 0.36, h: 0.27, hb: 0.27, y: -0.18, n: 2.4 }, { z: 5.9, w: 0.37, h: 0.3, y: -0.2, n: 2.4 }, { z: 8.6, w: 0.3, h: 0.3, y: -0.2 }], { x: 0.8 * s, cap0: false, seg: 14 });
+        a.face([0.8 * s, -0.18, 4.98], 0.31, 0.24);
       }
-      a.wing([[0.6, 4.4, 11.6, 0.3], [1.05, 6.4, 11.6, 0.28], [1.45, 7.6, 11.6, 0.26], [4.25, 9.75, 11.0, 0.08]], { y: -0.05 });
-      const sR = a.bone('stab', [1.6, 0.0, 12.6], [1, 0, 0], 1), sL = a.bone('stab', [-1.6, 0.0, 12.6], [1, 0, 0], -1);
-      a.wing([[0.75, 11.0, 13.6, 0.15], [2.85, 12.9, 13.9, 0.05]], { y: 0.0, bones: [sR, sL] });
-      a.fin([[0, 9.2, 13.3, 0.22], [2.55, 11.9, 13.4, 0.08]], { y: 0.45, accentFrom: 1.8 });
-      a.nozzle(0.42, 0.05, 13.2, 0.4, 0.37, 0.95); a.nozzle(-0.42, 0.05, 13.2, 0.4, 0.37, 0.95);
-      a.canopy(4.2, 0.54, 0.42, 0.52, 1.55);
+      a.wing([[0.45, 3.9, 10.25, 0.2], [1.13, 5.8, 10.17, 0.2], [1.6, 6.85, 10.06, 0.19], [4.03, 8.36, 9.42, 0.07]], { y: 0.02, dih: -2 });
+      const sR = a.bone('stab', [1.55, -0.12, 12.25], [1, 0, 0], 1), sL = a.bone('stab', [-1.55, -0.12, 12.25], [1, 0, 0], -1);
+      a.wing([[0.95, 11.05, 13.2, 0.12], [2.9, 12.57, 13.12, 0.04]], { y: -0.12, bones: [sR, sL] });
+      a.fin([[0, 9.6, 13.3, 0.24], [0.4, 10.3, 13.3, 0.2], [1.96, 12.2, 13.3, 0.07]], { y: 0.56, accentFrom: 1.45 });
+      a.nozzle(0.31, -0.04, 12.5, 0.33, 0.3, 0.88); a.nozzle(-0.31, -0.04, 12.5, 0.33, 0.3, 0.88);
+      a.canopy(4.05, 0.32, 0.47, 0.44, 1.7);
       a.gun(-0.75, 0.12, 5.0);
-      a.rail(4.36, -0.05, 9.0, 11.3); a.rail(-4.36, -0.05, 9.0, 11.3);
-      a.missile(-0.48, -0.86, 8.6, 'rad'); a.missile(0.48, -0.86, 8.6, 'rad');
-      a.missile(-2.55, -0.44, 8.2, 'rad', true); a.missile(2.55, -0.44, 8.2, 'rad', true);
-      a.missile(-4.42, -0.05, 8.8, 'ir'); a.missile(4.42, -0.05, 8.8, 'ir');
-      a.tip(4.45, -0.05, 11.0); a.tip(-4.45, -0.05, 11.0);
+      a.rail(4.1, -0.11, 8.0, 9.55); a.rail(-4.1, -0.11, 8.0, 9.55);
+      a.missile(-0.56, -0.96, 7.0, 'rad'); a.missile(0.56, -0.96, 7.0, 'rad');
+      a.missile(-2.45, -0.5, 7.2, 'rad', true); a.missile(2.45, -0.5, 7.2, 'rad', true);
+      a.missile(-4.18, -0.12, 7.9, 'ir'); a.missile(4.18, -0.12, 7.9, 'ir');
+      a.tip(4.1, -0.11, 9.3); a.tip(-4.1, -0.11, 9.3);
     },
   },
   {
-    id: 'mig21', era: 'jet', name: 'MiG-21bis 魚床', en: 'MIG-21BIS FISHBED', country: '蘇聯', first: 1955, len: 14.5, span: 7.15,
+    id: 'mig21', era: 'jet', name: 'MiG-21bis 魚床', en: 'MIG-21BIS FISHBED', country: '蘇聯', first: 1955, len: 14.5, span: 7.15, flame: 'ru',
     gun: 'GSh-23L 23 mm 機砲', est: true, note: '機頭進氣、中央有震波錐的經典三角翼，產量最多的超音速戰機。（這架的數值是估計值）',
     paint: { pattern: 3, top: '#b9bec2', bot: '#c5c9cc', c2: '#b9bec2', c3: '#b9bec2', scale: 0.3, glass: '#2f3b45', metal: 0.72, gloss: 0.6 },
     st: { hp: 165, vab: 1420, vmax: 790, vtab: 600, vt: 450, vc: 760, vr: 144, vs: 270, vcl: 580, aab: 52, acc: 28, wb: 34, wh: 14, roll: 200, resp: 6,
@@ -1589,22 +1630,33 @@ const AC_DEFS = [
   {
     id: 'zero', era: 'prop', name: '零式艦戰 21 型', en: 'A6M2 ZERO', country: '日本', first: 1939, len: 9.06, span: 12.0,
     gun: '九九式 20 mm ×2 + 九七式 7.7 mm ×2', est: true, note: '極輕的艦載戰鬥機，迴轉半徑最小，但機身脆弱、高速時滾轉變鈍。',
-    paint: { pattern: 0, top: '#3f4b36', bot: '#b9b9aa', c2: '#3f4b36', c3: '#3f4b36', scale: 0.3, rad: '#262624', radZ: 1.75, glass: '#34404a', metal: 0.04, gloss: 0.25 },
+    // early-war scheme after the Tamiya A6M2 sheet (Akagi, Dec 1941): ameiro grey-green all over, black cowling,
+    // red command band round the rear fuselage
+    paint: { pattern: 0, top: '#b9b59e', bot: '#b2ae97', c2: '#b9b59e', c3: '#b9b59e', scale: 0.3, rad: '#232322', radZ: 1.72, glass: '#3a4752', metal: 0.04, gloss: 0.3,
+      band: [5.95, 6.35], bandOn: true, bandCol: '#a32b25' },
     st: { hp: 70, vab: 533, vmax: 510, vtab: 370, vt: 355, vc: 320, vr: 110, vs: 125, vcl: 320, aab: 10, acc: 8.5, wb: 38, wh: 11, roll: 120, rollHi: 0.5, resp: 7,
       abFuel: 20, abRegen: 15, flareCd: 0, flareDur: 0, detect: 4.0, radar: 0, scan: 0, gunRate: 18, gunDmg: 3.6, ammo: 700, prop: true, bullet: 820 },
     loadout: [],
     build(a) {
       a.prop(-0.15, 0.04, 1.45, 3, 0.22, 0.45);
-      a.loft([{ z: 0.12, w: 0.5, h: 0.5, y: 0.04 }, { z: 0.5, w: 0.62, h: 0.62, y: 0.04 }, { z: 1.7, w: 0.6, h: 0.6, y: 0.04 }], { cap0: false, cap1: false, seg: 22 });
+      a.loft([{ z: 0.12, w: 0.5, h: 0.5, y: 0.04 }, { z: 0.5, w: 0.6, h: 0.6, y: 0.04 }, { z: 1.7, w: 0.58, h: 0.58, y: 0.04 }], { cap0: false, cap1: false, seg: 22 });
       a.face([0, 0.04, 0.2], 0.48, 0.48);
       a.body([
-        { z: 1.6, w: 0.6, h: 0.6, y: 0.04 }, { z: 2.8, w: 0.56, h: 0.62, hb: 0.55, y: 0.04 }, { z: 4.5, w: 0.5, h: 0.6, hb: 0.5, y: 0.04 },
-        { z: 6.5, w: 0.34, h: 0.45, hb: 0.38, y: 0.1 }, { z: 8.2, w: 0.16, h: 0.3, hb: 0.22, y: 0.16 }, { z: 9.06, w: 0.04, h: 0.18, hb: 0.1, y: 0.2 },
+        { z: 1.6, w: 0.58, h: 0.58, y: 0.04 }, { z: 2.8, w: 0.55, h: 0.6, hb: 0.55, y: 0.04 }, { z: 4.5, w: 0.5, h: 0.58, hb: 0.5, y: 0.05 },
+        { z: 6.5, w: 0.34, h: 0.44, hb: 0.38, y: 0.1 }, { z: 8.2, w: 0.16, h: 0.3, hb: 0.22, y: 0.16 }, { z: 9.06, w: 0.04, h: 0.18, hb: 0.1, y: 0.2 },
       ]);
-      a.wing([[0.45, 1.9, 4.3, 0.34], [5.4, 3.0, 4.15, 0.12], [5.85, 3.25, 4.05, 0.08], [6.0, 3.5, 3.95, 0.05]], { y: -0.42, dih: 6 });
-      a.wing([[0.15, 7.7, 8.95, 0.1], [1.9, 8.25, 8.9, 0.05], [2.05, 8.45, 8.85, 0.04]], { y: 0.18 });
-      a.fin([[0, 7.4, 9.05, 0.12], [0.8, 8.1, 9.05, 0.1], [1.15, 8.5, 8.95, 0.06], [1.25, 8.7, 8.85, 0.04]], { y: 0.3, accentFrom: 0.8 });
-      a.canopy(4.1, 0.5, 0.32, 0.4, 1.35);
+      // long, nearly straight-edged wing with rounded (folding) tips and 6.5 deg dihedral
+      a.wing([[0.45, 1.85, 4.35, 0.34], [4.9, 2.75, 4.2, 0.13], [5.55, 3.0, 4.12, 0.09], [5.87, 3.25, 4.02, 0.06], [6.0, 3.55, 3.9, 0.04]], { y: -0.42, dih: 6.5 });
+      a.wing([[0.15, 7.62, 8.95, 0.1], [1.95, 8.12, 8.92, 0.06], [2.25, 8.32, 8.86, 0.04], [2.35, 8.55, 8.8, 0.03]], { y: 0.18 });
+      a.fin([[0, 7.35, 9.06, 0.12], [0.8, 8.05, 9.06, 0.1], [1.12, 8.42, 8.98, 0.07], [1.26, 8.66, 8.86, 0.04]], { y: 0.3, accentFrom: 0.85 });
+      // greenhouse canopy: glass bubble plus the frame hoops (painted like the airframe)
+      a.canopy(3.85, 0.5, 0.32, 0.4, 1.2);
+      a.mat(MAT.PAINT);
+      for (const z of [2.95, 3.3, 3.7, 4.05, 4.45, 4.8]) {
+        const t = (z - 3.85) / 1.2, k = Math.sqrt(Math.max(0, 1 - t * t));
+        a.b.loft([{ z, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }, { z: z + 0.035, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }], { cap0: false, cap1: false, seg: 16 });
+      }
+      a.mat(MAT.PAINT);
       for (const s of [1, -1]) { a.gun(2.4 * s, -0.36, 2.4); a.gun(0.16 * s, 0.48, 1.0); }
       a.tip(6.0, 0.2, 3.7); a.tip(-6.0, 0.2, 3.7);
     },
@@ -1646,20 +1698,22 @@ function missileShape(b, x, y, z, kind) {
 }
 // missiles hung under a hi-detail model (same shapes and slot numbering as the procedural builder)
 function buildStores(list) {
-  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [];
+  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [], out = [];
   for (const s of list) {
     const isIr = s.k === 'ir', slot = isIr ? 20 + (++nI) : ++nR, [L, r] = MSL_DIM[s.k] || MSL_DIM.rad;
-    if (s.ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + s.ph / 2, s.z + L * 0.48], 0.07, s.ph + 0.04, L * 0.5); }
+    const ph = s.ph || (s.pylon ? 0.46 : 0); // 'pylon' stores hang 0.46 m below the wing (see tools/hd/build_hd.py)
+    if (ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + ph / 2, s.z + L * 0.48], 0.07, ph + 0.04, L * 0.5); }
     b.slot = slot; missileShape(b, s.x, s.y, s.z, s.k); b.slot = 0;
     (isIr ? pylI : pylR).push([s.x, s.y, s.z + L * 0.5]);
+    out.push({ k: s.k in MSL_DIM ? s.k : 'rad', slot, x: s.x, y: s.y, z: s.z });
   }
-  return { data: nR + nI ? b.data() : null, pylR, pylI };
+  return { data: nR + nI ? b.data() : null, pylR, pylI, list: out };
 }
 
 // ---- builder context exposed to the definitions ----
 function buildAircraftModel(def) {
   const b = new MB();
-  const meta = { bones: [null], guns: [], flames: [], tips: [], nR: 0, nI: 0, pylR: [], pylI: [], props: [] };
+  const meta = { bones: [null], guns: [], flames: [], tips: [], nR: 0, nI: 0, pylR: [], pylI: [], props: [], stores: [] };
   const a = {
     b, meta,
     mat(m) { b.mat = m; },
@@ -1688,6 +1742,7 @@ function buildAircraftModel(def) {
       b.slot = slot; missileShape(b, x, y, z, kind);
       b.slot = 0; b.mat = MAT.PAINT;
       (isIr ? meta.pylI : meta.pylR).push([x, y, z + L * 0.5]);
+      meta.stores.push({ k: kind, slot, x, y, z });
     },
     prop(z, y, r, blades, sr, slen) {
       const bi = a.bone('prop', [0, y, z], [0, 0, 1], 0);
@@ -1725,6 +1780,7 @@ function buildAircraftModel(def) {
   meta.flames = meta.flames.map(f => ({ p: sh(f.p), r: f.r }));
   meta.tips = meta.tips.map(t => ({ p: sh(t.p), bone: t.bone }));
   meta.props = meta.props.map(p => ({ z: p.z - shift, y: p.y, r: p.r }));
+  meta.stores = meta.stores.map(s => Object.assign({}, s, { z: s.z - shift }));
   meta.shift = shift; meta.radius = rad; meta.length = zmax - zmin;
   meta.data = b.data();
   return meta;
@@ -1811,7 +1867,7 @@ for (const d of AC_DEFS) {
 // Textured models converted from third-party GLB files (credits in each file's header and the README).
 // They are optional: they stream in after the game starts, and until one has arrived (or if the files are
 // missing, e.g. inside the Claude artifact) the procedural model is drawn instead.
-const HD_IDS = ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21'];
+const HD_IDS = ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21', 'p51', 'spit', 'bf109', 'missiles'];
 const HD_CREDIT = {
   f16: ['F16-C Falcon', 'Carlos.Maciel', 'CC BY 4.0'],
   f22: ['F22 RAPTOR', 'sxnneh', 'Sketchfab Standard'],
@@ -1820,6 +1876,9 @@ const HD_CREDIT = {
   typhoon: ['Eurofighter Typhoon - Fighter Jet - Free', 'bohmerang', 'CC BY-NC-SA 4.0'],
   m2000: ['Mirage 2000-5F', 'Jeyhun1985', 'CC BY 4.0'],
   mig21: ['1972 MiG-21bis', 'OUTPISTON', 'CC BY-NC-SA 4.0'],
+  p51: ['P-51 Mustang', 'ACshibu', 'CC BY-NC 4.0'],
+  spit: ["Isn'treal Spitfire Mk.IX (CW) (War Thunder)", 'KojfDiscord', 'CC BY 4.0'],
+  bf109: ['BF 109 F-2 Messerschmitt', 'GRIP420', 'CC BY 4.0'],
 };
 const HD = {
   models: {}, state: {}, queue: [], busy: 0, base: 'models/', ready: false, ext32: null, aniso: null, maxAniso: 1, off: false,
@@ -1845,7 +1904,7 @@ const HD = {
     if (first) this.queue.unshift(id); else this.queue.push(id);
     this.pump();
   },
-  wantAll(firstId) { if (firstId) this.want(firstId, true); for (const id of HD_IDS) this.want(id); },
+  wantAll(firstId) { if (firstId) this.want(firstId, true); this.want('missiles'); for (const id of HD_IDS) this.want(id); },
   pump() {
     while (this.busy < 2 && this.queue.length) {
       const id = this.queue.shift();
@@ -1866,45 +1925,79 @@ const HD = {
     const base = 8 + hl;
     if (H.idx32 && !this.ext32) throw new Error('32-bit indices unsupported');
     // textures first (decoding is async), then the GPU buffers in one go
-    const imgs = await Promise.all(H.tex.map(t => decodeImage(new Blob([new Uint8Array(buf, base + t.off, t.len)], { type: 'image/webp' }))));
+    const imgs = await Promise.all(H.tex.map(t => decodeImage(new Blob([new Uint8Array(buf, base + t.off, t.len)], { type: t.mime || 'image/webp' }))));
     const gl = R.gl;
     const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(buf, base, H.vbytes), gl.STATIC_DRAW);
     const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, H.idx32 ? new Uint32Array(buf, base + H.ioff, H.ni) : new Uint16Array(buf, base + H.ioff, H.ni), gl.STATIC_DRAW);
-    const tex = imgs.map(im => {
-      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    const tex = imgs.map((im, i) => {
+      const t = gl.createTexture(), nearest = !!H.tex[i].nearest; gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
-      gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-      if (this.aniso) gl.texParameterf(gl.TEXTURE_2D, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, this.maxAniso);
+      if (nearest) { // colour palette: every cell must keep its exact colour at any distance
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      } else {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        if (this.aniso) gl.texParameterf(gl.TEXTURE_2D, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, this.maxAniso);
+      }
       if (im.close) im.close();
       return t;
     });
     const M = H.meta;
-    const st = buildStores(M.stores || []);
-    const mats = { f22: [0.12, 0.3] };
+    const mats = { f22: [0.12, 0.3], missiles: [0.1, 0.42] };
     const m = {
       id, vb, ib, tex, idx32: !!H.idx32, credit: H.credit, tris: H.ni / 3,
       pc: new Float32Array(H.pc), ph: new Float32Array(H.ph), uvo: new Float32Array(H.uvmin), uvs: new Float32Array(H.uvrange),
       groups: H.groups.map(g => ({ start: g.start, count: g.count, tex: g.tex, color: new Float32Array(g.color), mode: g.mode, double: !!g.double, cutoff: g.cutoff,
         mat: new Float32Array(g.mode === 2 ? [0, 0.95] : (mats[id] || [0.08, 0.34])) })),
-      stores: st.data ? R.mesh(st.data, 'plane') : null,
-      radius: M.radius, accY: M.accY !== undefined ? M.accY : 99,
-      // hinged parts: [null, { kind: stab|canard|elevon|ail|rud|swing, side, pivot, axis, rest? }, ...] (index = bone byte)
+      radius: M.radius || 3, accY: M.accY !== undefined ? M.accY : 99,
+    };
+    if (id === 'missiles') { m.missiles = M.missiles; this.msl = m; this.models[id] = m; return; }
+    const st = buildStores(M.stores || []);
+    Object.assign(m, {
+      stores: st.data ? R.mesh(st.data, 'plane') : null, storeList: st.list,
+      // hinged parts: [null, { kind: stab|canard|elevon|ail|rud|swing|prop, side, pivot, axis, rest? }, ...] (index = bone byte)
       bones: (M.bones || [null]).slice(0, 8),
+      propBone: (M.bones || []).findIndex(b => b && b.kind === 'prop'),
       vm: {
-        flames: M.flames.map(f => ({ p: f.p, r: f.r })),
+        flames: (M.flames || []).map(f => ({ p: f.p, r: f.r })),
+        props: (M.props || []).map(p => ({ z: p.z, y: p.y, r: p.r })),
         // wingtips (vortex trails) follow the swing-wing bone they belong to
         tips: M.tips.map(t => ({ p: [t[0], t[1], t[2]], bone: t[3] || 0 })),
         pylR: M.internal ? M.internal.rad : (M.launch && M.launch.rad.length ? M.launch.rad : st.pylR),
         pylI: M.internal ? M.internal.ir : (M.launch && M.launch.ir.length ? M.launch.ir : st.pylI),
       },
-    };
+    });
     this.models[id] = m;
   },
+  // hi-detail missile for a game missile id: { m, g0, g1, sc, tint, len, r } or null (not loaded / light mode)
+  missile(id) {
+    const m = this.lite() ? null : this.msl;
+    if (!m) return null;
+    let c = this.mslCache[id];
+    if (c === undefined) {
+      const spec = MSL_HD[id], e = spec && m.missiles[spec[0]];
+      c = e ? { m, g0: e.g[0], g1: e.g[1], sc: spec[1] ? spec[1] / e.len : 1, tint: spec[2] ? new Float32Array([spec[2][0], spec[2][1], spec[2][2], 1]) : null, len: 0, r: 0 } : null;
+      if (c) { c.len = e.len * c.sc; c.r = e.r * c.sc; }
+      this.mslCache[id] = c;
+    }
+    return c;
+  },
+  mslCache: {},
+};
+
+const MSL_CREDIT = {
+  aim120c: ['AIM-120C AMRAAM', 'Jeyhun1985'], aim9l: ['Missiles', 'Civorsky'], aim54c: ['Missiles', 'Civorsky'], s530d: ['Missiles', 'Civorsky'],
+  aim120d: ['Missiles', 'Civorsky'], r27r: ['Russian weapon pack', 'Rhine_Lab_Muelsyse'], r73: ['Russian weapon pack', 'Rhine_Lab_Muelsyse'],
+};
+// which hi-detail missile model stands in for each game missile: [model, length (m) if rescaled, colour tint]
+const MSL_HD = {
+  aim120: ['aim120c'], aim9m: ['aim9l', 0, [0.8, 0.82, 0.84]], aim54: ['aim54c'], meteor: ['aim120d'], irist: ['aim9l'],
+  r27r: ['r27r'], r73: ['r73'], s530d: ['s530d'], magic: ['aim9l', 2.75], r3r: ['aim9l', 3.1, [0.74, 0.76, 0.77]], r60: ['r73', 2.09],
 };
 
 function decodeImage(blob) {
@@ -2268,6 +2361,7 @@ class Plane {
     this.modelM = M4.create(); this.bones = new Float32Array(128); this.bones.set(IDENT_BONES);
     this.hdBones = new Float32Array(128); this.hdBones.set(IDENT_BONES); this.cs = new V3();
     this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, hdBones: this.hdBones, flash: 0 };
+    this.mslLook = { accent: ONE3, firedR: 0, firedI: 0, hdBones: null, flash: 0 }; this.si = null; this.siKey = '';
     this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
@@ -2452,6 +2546,7 @@ class Plane {
       switch (bn.kind) {
         case 'stab': ang = (-pi * 13 - bn.side * ri * 7) * DEG; break; // all-moving tail, also helps roll
         case 'canard': ang = pi * 13 * DEG; break;
+        case 'elev': ang = -pi * 20 * DEG; break; // hinged elevator behind a fixed tailplane
         case 'elevon': ang = (-pi * 12 - bn.side * ri * 14) * DEG; break; // delta wing: elevator + aileron in one
         case 'ail': ang = -bn.side * ri * 18 * DEG; break;
         case 'rud': ang = yi * 18 * DEG; break;
@@ -2478,13 +2573,45 @@ class Plane {
     if (this.alive && this.invuln(now) && Math.floor(now / 110) % 2 === 0) return;
     this.drawBody(false);
   }
-  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across
+  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across;
+  // close up, the missiles on the pylons are hi-detail models too (the simple ones are hidden then)
   drawBody(force) {
-    const hd = this.hd;
+    const hd = this.hd, L = this.look;
+    const si = force || this.bigOnScreen(this.model.radius, 60) ? this.storeInstances() : null;
+    const fr = L.firedR, fi = L.firedI;
     if (hd && (force || this.bigOnScreen(hd.radius, 5))) {
-      R.drawHD(hd, this.modelM, this.look);
-      if (hd.stores) R.drawPlane(hd.stores, this.modelM, this.look);
-    } else R.drawPlane(this.model.mesh, this.modelM, this.look);
+      R.drawHD(hd, this.modelM, L);
+      if (si) { L.firedR = 99; L.firedI = 99; }
+      if (hd.stores) R.drawPlane(hd.stores, this.modelM, L);
+    } else {
+      if (si) { L.firedR = 99; L.firedI = 99; }
+      R.drawPlane(this.model.mesh, this.modelM, L);
+    }
+    L.firedR = fr; L.firedI = fi;
+    if (si) {
+      const ml = this.mslLook; ml.flash = L.flash;
+      for (const it of si) {
+        if (it.ir ? it.slot - 20 <= fi : it.slot <= fr) continue;
+        M4.mul(STORE_M, this.modelM, it.M);
+        R.drawHD(it.hm.m, STORE_M, ml, it.hm.g0, it.hm.g1, it.hm.tint);
+      }
+    }
+  }
+  // where each hi-detail missile hangs (aircraft frame), cached per aircraft type and model; null until the
+  // missile library has loaded. The missile keeps the nose where the simple one had it and its top at the rail.
+  storeInstances() {
+    const hd = this.hd, d = this.def, key = (hd ? 'h:' : 'p:') + d.id;
+    if (this.siKey === key) return this.si;
+    const list = hd ? hd.storeList : this.model.stores, out = [];
+    for (const s of list || []) {
+      const ir = s.slot > 20, w = ir ? d.wI : d.wR, hm = w && HD.missile(w.m.id);
+      if (!hm) return null;
+      const M = M4.create(), rp = (MSL_DIM[s.k] || MSL_DIM.rad)[1];
+      M4.fromQP(M, IDENT_Q, _a.set(s.x, s.y + rp - hm.r, s.z + hm.len / 2), hm.sc);
+      out.push({ slot: s.slot, ir, hm, M });
+    }
+    this.si = out; this.siKey = key;
+    return out;
   }
   bigOnScreen(r, px) {
     const m = R.cam.vp, p = this.pos, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
@@ -2504,15 +2631,21 @@ class Plane {
     const thr = this.local ? this.ctrl.thr : 0.85, ab = this.abOn;
     const inten = ab ? 1 : clamp((thr - 0.55) * 0.9, 0, 0.4);
     if (inten <= 0.01) return;
+    const pal = FLAME_PAL[this.def.flame] || FLAME_PAL.us;
     for (const f of m.flames) {
       _a.set(f.p[0], f.p[1], f.p[2]).rot(this.q).add(this.pos);
       M4.fromQP(FLAME_M, this.q, _a);
-      const L = f.r * (ab ? 8.5 + Math.sin(now * 0.05) * 0.6 : 3.2);
-      R.drawFlame(SHARED.flame, FLAME_M, f.r * (ab ? 1.0 : 0.8), f.r * (ab ? 1.0 : 0.8), L, inten, 0);
+      // afterburner: long plume with shock diamonds ~1.3 plume diameters apart; dry: short, faint
+      const r = Math.max(f.r, 0.3), L = r * (ab ? 12.5 + Math.sin(now * 0.05) * 0.8 : 4.0), w = r * (ab ? 1.08 : 0.8);
+      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.6));
+      // the glowing nozzle seen from behind
+      _a.set(f.p[0], f.p[1], f.p[2] + 0.02).rot(this.q).add(this.pos);
+      M4.fromQP(FLAME_M, this.q, _a);
+      R.drawFlame(SHARED.disc, FLAME_M, f.r * 0.98, f.r * 0.98, 1, ab ? 0.85 : inten * 0.9, 2, pal);
     }
   }
 }
-const FLAME_M = M4.create();
+const FLAME_M = M4.create(), STORE_M = M4.create(), IDENT_Q = new Q();
 
 // ---------- steering assistant (mouse aim and AI) ----------
 // writes pitch/roll/yaw into ctrl so the aircraft turns toward `target` (world point)
@@ -2800,9 +2933,16 @@ const W = {
     else if (!m && boom && at) FX.explosion(at, 0.7);
   },
   drawMissiles() {
-    const look = { paint: SHARED.missilePaint, accent: null, firedR: 0, firedI: 0, bones: null, flash: 0 };
+    // shared look for missiles in flight (procedural mesh and hi-detail model)
+    const look = this.look || (this.look = { paint: SHARED.missilePaint, accent: ONE3, firedR: 0, firedI: 0, bones: null, hdBones: null, flash: 0 });
     for (const m of this.missiles) {
       if (!m.alive || !R.visible(m.pos, 4)) continue;
+      const hm = HD.missile(m.def.id);
+      if (hm && R.pxSize(m.pos, hm.len) > 6) { // hi-detail model once it is more than a few pixels long
+        M4.fromQP(MS_M, m.q, m.pos, hm.sc);
+        R.drawHD(hm.m, MS_M, look, hm.g0, hm.g1, hm.tint);
+        continue;
+      }
       const sc = m.def.shape === 'big' ? 1.35 : m.def.shape === 'ir' ? 0.82 : 1;
       M4.fromQP(MS_M, m.q, m.pos, sc);
       R.drawPlane(SHARED.missile, MS_M, look);
@@ -4615,6 +4755,9 @@ const UI = {
     el.append(lab, h, en, dl, bars, note);
     const cr = HD_CREDIT[d.id];
     if (cr) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = `3D 模型：${cr[0]}，作者 ${cr[1]}（${cr[2]}，Sketchfab）`; el.append(c); }
+    const mc = [d.wR, d.wI].map(w => { const m = w && MSL_HD[w.m.id] && MSL_CREDIT[MSL_HD[w.m.id][0]]; return m ? `${m[0]}，作者 ${m[1]}` : ''; })
+      .filter((v, i, a) => v && a.indexOf(v) === i);
+    if (mc.length) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = '飛彈模型：' + mc.join('；') + '（CC BY 4.0，Sketchfab）'; el.append(c); }
   },
   renderHangar(now, dt) {
     const p = this.hangarPlane; if (!p) return;

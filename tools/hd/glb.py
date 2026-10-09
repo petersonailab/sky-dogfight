@@ -62,41 +62,81 @@ def node_matrix(n):
     return M
 
 
-def load_scene(path):
-    """Returns (js, binc, prims) where prims is a list of dicts with world-space pos/nor, uv, idx, material, node name path."""
+def load_scene(path, pose=None):
+    """Returns (js, binc, prims) where prims is a list of dicts with world-space pos/nor, uv, idx, material, node name path.
+    Skinned meshes are posed with the node transforms (pose: {node name: {'rotation'|'translation'|'scale': ...}}
+    overrides them, e.g. to fold the landing gear); each skinned vertex also records its main joint's node name."""
     js, binc = read_glb(path)
     scene = js['scenes'][js.get('scene', 0)]
     prims = []
+    pose = pose or {}
+    # world matrix of every node (with the pose overrides)
+    world = {}
+
+    def local(n):
+        o = pose.get(n.get('name', ''))
+        if o:
+            n = dict(n); n.pop('matrix', None) if 'matrix' in n and any(k in o for k in ('rotation', 'translation', 'scale')) else None
+            n.update(o)
+        return node_matrix(n)
+
+    def walk(ni, parentM):
+        M = parentM @ local(js['nodes'][ni])
+        world[ni] = M
+        for c in js['nodes'][ni].get('children', []):
+            walk(c, M)
+    for r in scene['nodes']:
+        walk(r, np.eye(4))
 
     def visit(ni, parentM, path):
         n = js['nodes'][ni]
-        M = parentM @ node_matrix(n)
+        M = world[ni]
         name = n.get('name', '')
         p2 = path + [name]
         if 'mesh' in n:
             mesh = js['meshes'][n['mesh']]
+            skin = js['skins'][n['skin']] if 'skin' in n else None
             for pi, p in enumerate(mesh['primitives']):
                 if p.get('mode', 4) != 4:
                     continue
                 at = p['attributes']
                 pos = accessor(js, binc, at['POSITION']).astype(np.float64)
-                pos_w = (np.c_[pos, np.ones(len(pos))] @ M.T)[:, :3]
-                if 'NORMAL' in at:
-                    nor = accessor(js, binc, at['NORMAL']).astype(np.float64)
-                    Nm = np.linalg.inv(M[:3, :3]).T
-                    nor_w = nor @ Nm.T
-                    nor_w /= np.maximum(np.linalg.norm(nor_w, axis=1, keepdims=True), 1e-12)
+                nor = accessor(js, binc, at['NORMAL']).astype(np.float64) if 'NORMAL' in at else None
+                joint_name = None
+                if skin is not None and 'JOINTS_0' in at:
+                    J = accessor(js, binc, at['JOINTS_0']).astype(np.int64)
+                    Wt = accessor(js, binc, at['WEIGHTS_0']).astype(np.float64)
+                    Wt = Wt / np.maximum(Wt.sum(1, keepdims=True), 1e-12)
+                    ibm = accessor(js, binc, skin['inverseBindMatrices']).astype(np.float64).reshape(-1, 4, 4).transpose(0, 2, 1) if 'inverseBindMatrices' in skin else np.tile(np.eye(4), (len(skin['joints']), 1, 1))
+                    JM = np.stack([world[j] @ ibm[k] for k, j in enumerate(skin['joints'])])     # joint matrices
+                    Mv = np.einsum('vk,vkij->vij', Wt, JM[J])                                   # blended per vertex
+                    pos_w = np.einsum('vij,vj->vi', Mv[:, :3, :3], pos) + Mv[:, :3, 3]
+                    if nor is not None:
+                        nor_w = np.einsum('vij,vj->vi', Mv[:, :3, :3], nor)
+                        nor_w /= np.maximum(np.linalg.norm(nor_w, axis=1, keepdims=True), 1e-12)
+                    else:
+                        nor_w = None
+                    main = J[np.arange(len(J)), np.argmax(Wt, axis=1)]
+                    joint_name = np.array([js['nodes'][skin['joints'][k]].get('name', '') for k in main])
+                    det = np.linalg.det(Mv[0, :3, :3])
+                    flipM = det < 0
                 else:
-                    nor_w = None
+                    pos_w = (np.c_[pos, np.ones(len(pos))] @ M.T)[:, :3]
+                    if nor is not None:
+                        Nm = np.linalg.inv(M[:3, :3]).T
+                        nor_w = nor @ Nm.T
+                        nor_w /= np.maximum(np.linalg.norm(nor_w, axis=1, keepdims=True), 1e-12)
+                    else:
+                        nor_w = None
+                    flipM = np.linalg.det(M[:3, :3]) < 0
                 uv = accessor(js, binc, at['TEXCOORD_0']) if 'TEXCOORD_0' in at else None
                 col = accessor(js, binc, at['COLOR_0']) if 'COLOR_0' in at else None
                 idx = accessor(js, binc, p['indices']).astype(np.int64).ravel() if 'indices' in p else np.arange(len(pos))
-                flip = np.linalg.det(M[:3, :3]) < 0
                 tri = idx.reshape(-1, 3)
-                if flip:
+                if flipM:
                     tri = tri[:, [0, 2, 1]]
                 prims.append(dict(pos=pos_w, nor=nor_w, uv=uv, col=col, tri=tri, mat=p.get('material', -1),
-                                  node=name, path='/'.join(p2), mesh=mesh.get('name', ''), meshIndex=n['mesh'], prim=pi))
+                                  node=name, path='/'.join(p2), mesh=mesh.get('name', ''), meshIndex=n['mesh'], prim=pi, joint=joint_name))
         for c in n.get('children', []):
             visit(c, M, p2)
 
@@ -118,6 +158,11 @@ def material_info(js, mi):
         return dict(factor=[0.8, 0.8, 0.8, 1.0], image=None, alpha='OPAQUE', name='default', double=False)
     m = js['materials'][mi]
     pbr = m.get('pbrMetallicRoughness', {})
+    sg = m.get('extensions', {}).get('KHR_materials_pbrSpecularGlossiness')
+    if sg is not None and 'baseColorTexture' not in pbr:     # older spec-gloss export: diffuse = base colour
+        pbr = dict(pbr); pbr['baseColorFactor'] = sg.get('diffuseFactor', [1, 1, 1, 1])
+        if 'diffuseTexture' in sg:
+            pbr['baseColorTexture'] = sg['diffuseTexture']
     f = pbr.get('baseColorFactor', [1, 1, 1, 1])
     tex = pbr.get('baseColorTexture')
     img = None

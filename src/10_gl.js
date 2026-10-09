@@ -116,12 +116,12 @@ void main(){
   // bone 0 = rigid airframe; 1..7 = control surfaces / swing wings, moved by uBones like the procedural models
   hd: {
     vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute float aBone; attribute vec2 aUV;
-uniform mat4 uModel; uniform mat4 uVP; uniform mat4 uBones[8]; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
+uniform mat4 uModel; uniform mat4 uVP; uniform mat4 uBones[8]; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired; uniform float uPropBone;
 varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
 void main(){
   float sl = aSlot;
   if ((sl > 0.5 && sl < 20.5 && sl < uFired.x + 0.5) || (sl > 20.5 && sl - 20.0 < uFired.y + 0.5)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vW = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vUV = vec2(0.0); vOY = -99.0; return; }
-  vec3 lp = uPC + aPos * uPH; vOY = lp.y;
+  vec3 lp = uPC + aPos * uPH; vOY = abs(aBone - uPropBone) < 0.5 ? -99.0 : lp.y; // propeller blades never get the fin-tip colour
   vec4 p = vec4(lp, 1.0); vec4 n = vec4(aNor, 0.0);
   if (aBone > 0.5) { mat4 B = uBones[int(aBone + 0.5)]; p = B * p; n = B * n; }
   vec4 w = uModel * p; vW = w.xyz; vN = (uModel * n).xyz; vUV = uUVO + aUV * uUVS;
@@ -203,19 +203,34 @@ varying vec4 vC; varying vec2 vUV; void main(){ vC = aCol; vUV = aUV; gl_Positio
     fs: GLSL_FRAG_HEAD + `varying vec4 vC; varying vec2 vUV;
 void main(){ float e = abs(vUV.y); float a = vC.a * (1.0 - smoothstep(0.2, 1.0, e)) * mix(0.2, 1.0, vUV.x); vec3 c = mix(vC.rgb, vec3(1.0, 0.97, 0.9), 1.0 - smoothstep(0.0, 0.45, e)); gl_FragColor = vec4(c * a, a * 0.55); }`,
   },
+  // afterburner plume along +z (unit cone), prop blur disc (mode 1) and glowing nozzle disc (mode 2).
+  // Colours per engine family: c0 white-hot core, c1 plume, c2 tail, c3 nozzle ring; shock diamonds along the core.
   flame: {
-    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL;
-void main(){ vL = aPos; gl_Position = uVP * (uModel * vec4(aPos * uScl, 1.0)); }`,
-    fs: GLSL_FRAG_HEAD + `varying vec3 vL; uniform float uInt; uniform float uMode; uniform float uTime;
+    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL; varying vec3 vW; varying vec3 vN;
+void main(){ vL = aPos; vec4 w = uModel * vec4(aPos * uScl, 1.0); vW = w.xyz;
+  vN = normalize((uModel * vec4(aPos.x, aPos.y, 0.0, 0.0)).xyz + vec3(1e-5)); gl_Position = uVP * w; }`,
+    fs: GLSL_FRAG_HEAD + `varying vec3 vL; varying vec3 vW; varying vec3 vN; uniform float uInt; uniform float uMode; uniform float uTime; uniform vec3 uCam;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia;
 void main(){
+  if (uMode > 1.5) { // nozzle glow seen from behind: white-hot centre, coloured ring
+    float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.55, r);
+    vec3 col = mix(uC0, uC3, smoothstep(0.05, 0.85, r));
+    gl_FragColor = vec4(col * a, a); return; }
   if (uMode > 0.5) { float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.75, r) * smoothstep(0.12, 0.35, r) * (0.75 + 0.25 * sin(r * 40.0));
     gl_FragColor = vec4(vec3(0.32) * a * 0.22, a * 0.22); return; }
-  float z = vL.z; float r = length(vL.xy);
-  float dia = 0.5 + 0.5 * sin(z * 26.0 - 1.2);
-  vec3 col = mix(vec3(1.0, 0.96, 0.86), vec3(1.0, 0.5, 0.14), smoothstep(0.08, 0.75, z));
-  col = mix(col, vec3(0.5, 0.65, 1.0), (1.0 - smoothstep(0.0, 0.22, z)) * 0.45 * (1.0 - r));
-  float a = uInt * (1.0 - z) * (0.55 + 0.45 * dia * (1.0 - z)) * (1.0 - 0.55 * r) * (0.85 + 0.15 * sin(uTime * 60.0 + z * 9.0));
-  gl_FragColor = vec4(col * a, a);
+  float z = vL.z;
+  vec3 V = normalize(uCam - vW);
+  float face = abs(dot(normalize(vN), V));            // 1 where we look through the middle of the plume
+  float core = pow(face, 1.6);
+  float cell = fract(z * uDia + 0.35);                 // shock diamonds: bright knots at regular spacing
+  float dia = exp(-pow((cell - 0.5) * 3.2, 2.0)) * (1.0 - smoothstep(0.2, 0.9, z));
+  float hot = core * (1.0 - smoothstep(0.0, 0.3, z));
+  vec3 col = mix(uC1, uC0, clamp(hot * 0.85 + dia * core * 0.85, 0.0, 1.0));
+  col = mix(col, uC2, smoothstep(0.3, 1.0, z) * (1.0 - core * 0.4));
+  float fade = pow(1.0 - z, 1.1);
+  // kept below saturation so the knots still read as brighter bands
+  float a = uInt * fade * (0.3 + 0.7 * core) * (0.5 + 0.95 * dia) * 0.78 * (0.92 + 0.08 * sin(uTime * 61.0 + z * 11.0));
+  gl_FragColor = vec4(col * a, a * 0.55);              // partly 'over' so the colour survives against a bright sky
 }`,
   },
 };
@@ -363,6 +378,11 @@ const R = {
     out.on = out.x > -40 && out.x < this.cssW + 40 && out.y > -40 && out.y < this.cssH + 40;
     return true;
   },
+  // on-screen size (CSS px) of something r metres across at p; large when the camera is right next to it
+  pxSize(p, r) {
+    const m = this.cam.vp, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+    return w <= 1 ? 1e4 : r * this.cam.px / w;
+  },
   // sphere visibility test
   visible(p, r) {
     const m = this.cam.vp;
@@ -401,11 +421,13 @@ const R = {
     gl.uniform1f(u.uFlash, look.flash || 0);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
   },
-  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes)
-  drawHD(m, model, look) {
+  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes).
+  // g0..g1 picks a range of groups (one missile out of the missile library); tint multiplies the colour.
+  drawHD(m, model, look, g0, g1, tint) {
     const gl = this.gl, p = this.use(this.P.hd), u = p.u, a = p.a;
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniformMatrix4fv(u.uBones, false, look.hdBones || IDENT_BONES);
+    gl.uniform1f(u.uPropBone, m.propBone === undefined ? -1 : m.propBone);
     gl.uniform3fv(u.uPC, m.pc); gl.uniform3fv(u.uPH, m.ph);
     gl.uniform2fv(u.uUVO, m.uvo); gl.uniform2fv(u.uUVS, m.uvs);
     gl.uniform2f(u.uFired, look.firedR || 0, look.firedI || 0);
@@ -424,13 +446,17 @@ const R = {
     const it = m.idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, isz = m.idx32 ? 4 : 2;
     let blend = false;
     gl.disable(gl.BLEND); gl.depthMask(true);
-    for (const g of m.groups) {
+    const a0 = g0 || 0, a1 = g1 === undefined ? m.groups.length : g1;
+    for (let gi = a0; gi < a1; gi++) {
+      const g = m.groups[gi];
       if (g.mode === 2 && !blend) { blend = true; gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
       if (g.double) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
       const t = g.tex >= 0 ? m.tex[g.tex] : null;
       gl.uniform1f(u.uHasTex, t ? 1 : 0);
       if (t) gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.uniform4fv(u.uColor, g.color); gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
+      if (tint) { const c = TINT4; c[0] = g.color[0] * tint[0]; c[1] = g.color[1] * tint[1]; c[2] = g.color[2] * tint[2]; c[3] = g.color[3]; gl.uniform4fv(u.uColor, c); }
+      else gl.uniform4fv(u.uColor, g.color);
+      gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
       gl.uniform2fv(u.uMat, g.mat);
       gl.drawElements(gl.TRIANGLES, g.count, it, g.start * isz);
     }
@@ -459,16 +485,25 @@ const R = {
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
-  drawFlame(mesh, model, sx, sy, sz, intensity, mode) {
+  // mode 0: plume (additive), 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }; dia = shock diamonds per plume length
+  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia) {
     const gl = this.gl, p = this.use(this.P.flame), u = p.u;
     gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
-    if (mode) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); else gl.blendFunc(gl.ONE, gl.ONE);
+    if (mode === 2) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform3f(u.uScl, sx, sy, sz); gl.uniform1f(u.uInt, intensity); gl.uniform1f(u.uMode, mode || 0);
+    const P = pal || FLAME_PAL.us;
+    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3); gl.uniform1f(u.uDia, dia || 3);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
 };
 const IDENT = M4.create();
 const ONE3 = new Float32Array([1, 1, 1]);
+const TINT4 = new Float32Array(4);
+// afterburner colours: Western engines burn orange-red, Soviet/Russian ones blue (with the white-hot core and a reddish nozzle ring)
+const FLAME_PAL = {
+  us: { c0: new Float32Array([1.0, 0.94, 0.78]), c1: new Float32Array([1.0, 0.52, 0.14]), c2: new Float32Array([0.85, 0.16, 0.04]), c3: new Float32Array([1.0, 0.42, 0.2]) },
+  ru: { c0: new Float32Array([0.86, 0.93, 1.0]), c1: new Float32Array([0.32, 0.55, 1.0]), c2: new Float32Array([0.38, 0.24, 0.9]), c3: new Float32Array([1.0, 0.36, 0.42]) },
+};
 const IDENT_BONES = (() => { const a = new Float32Array(128); for (let i = 0; i < 8; i++) { a[i * 16] = a[i * 16 + 5] = a[i * 16 + 10] = a[i * 16 + 15] = 1; } return a; })();

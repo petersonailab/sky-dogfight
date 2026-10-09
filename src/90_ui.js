@@ -166,6 +166,9 @@ const UI = {
     el.append(lab, h, en, dl, bars, note);
     const cr = HD_CREDIT[d.id];
     if (cr) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = `3D 模型：${cr[0]}，作者 ${cr[1]}（${cr[2]}，Sketchfab）`; el.append(c); }
+    const mc = [d.wR, d.wI].map(w => { const m = w && MSL_HD[w.m.id] && MSL_CREDIT[MSL_HD[w.m.id][0]]; return m ? `${m[0]}，作者 ${m[1]}` : ''; })
+      .filter((v, i, a) => v && a.indexOf(v) === i);
+    if (mc.length) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = '飛彈模型：' + mc.join('；') + '（CC BY 4.0，Sketchfab）'; el.append(c); }
   },
   renderHangar(now, dt) {
     const p = this.hangarPlane; if (!p) return;

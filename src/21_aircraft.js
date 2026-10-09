@@ -125,7 +125,7 @@ const AC_DEFS = [
     },
   },
   {
-    id: 'su27', era: 'jet', name: 'Su-27 側衛', en: 'SU-27 FLANKER', country: '蘇聯／俄羅斯', first: 1977, len: 21.9, span: 14.7,
+    id: 'su27', era: 'jet', name: 'Su-27 側衛', en: 'SU-27 FLANKER', country: '蘇聯／俄羅斯', first: 1977, len: 21.9, span: 14.7, flame: 'ru',
     gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高，熱焰彈冷卻也最短。',
     paint: { pattern: 2, top: '#9fb3c4', bot: '#c2d0da', c2: '#7f9db7', c3: '#b6c6d1', scale: 0.36, rad: '#d3d8cf', radZ: 1.9, glass: '#2c3a48', metal: 0.05, gloss: 0.3, },
     st: { hp: 297, vab: 1496, vmax: 947, vtab: 780, vt: 506, vc: 846, vr: 180, vs: 288, vcl: 598, aab: 43, acc: 27, wb: 37, wh: 16, roll: 180, resp: 6,
@@ -223,36 +223,42 @@ const AC_DEFS = [
   {
     id: 'idf', era: 'jet', name: 'F-CK-1 經國號', en: 'F-CK-1 CHING-KUO', country: '中華民國', first: 1989, len: 14.21, span: 9.46,
     gun: 'M61A1 20 mm 機砲', note: '臺灣自製的雙發防禦戰機，兩側進氣口加翼端飛彈。轉向和 F-16 一樣利落，機體更耐打、加速更快。',
-    paint: { pattern: 1, top: '#9aa2a8', bot: '#b4babe', c2: '#8b949a', c3: '#a8afb4', scale: 0.25, rad: '#7b8286', radZ: 1.6, glass: '#2e3a44', metal: 0.06, gloss: 0.34 },
+    paint: { pattern: 1, top: '#9aa2a8', bot: '#b4babe', c2: '#8b949a', c3: '#a8afb4', scale: 0.25, rad: '#6f767b', radZ: 1.3, glass: '#2e3a44', metal: 0.06, gloss: 0.34 },
     st: { hp: 200, vab: 1400, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 38, wb: 41, wh: 15, roll: 240, resp: 8,
       abFuel: 14.4, abRegen: 12.0, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
+      // after the AIDC three-view: drooped radome with a long pitot, bubble canopy, kidney intakes under long LERX,
+      // wide twin-engine rear fuselage, slightly forward-swept wing trailing edge, swept fin and all-moving tail
+      a.mat(MAT.GRAY); a.b.cyl([0, -0.6, -0.92], [0, -0.6, 0.06], 0.014, 0.03, { seg: 6 }); a.mat(MAT.PAINT);
       a.body([
-        { z: 0, w: 0.03, h: 0.03, y: 0.05 }, { z: 0.6, w: 0.22, h: 0.22, y: 0.05 }, { z: 1.6, w: 0.42, h: 0.42, y: 0.05 },
-        { z: 2.8, w: 0.54, h: 0.54, hb: 0.5, y: 0.05 }, { z: 4.4, w: 0.6, h: 0.6, hb: 0.56, y: 0.05 }, { z: 6.4, w: 0.7, h: 0.6, hb: 0.58, n: 2.4 },
-        { z: 9.0, w: 0.8, h: 0.56, hb: 0.55, n: 2.8 }, { z: 11.5, w: 0.82, h: 0.5, hb: 0.48, n: 3 }, { z: 13.3, w: 0.8, h: 0.46, hb: 0.44, n: 3 },
+        { z: 0, w: 0.03, h: 0.03, y: -0.6 }, { z: 0.6, w: 0.2, h: 0.17, y: -0.52 }, { z: 1.25, w: 0.37, h: 0.26, y: -0.42 },
+        { z: 2.0, w: 0.45, h: 0.36, y: -0.33 }, { z: 2.8, w: 0.47, h: 0.42, hb: 0.44, y: -0.22 }, { z: 4.0, w: 0.5, h: 0.46, hb: 0.46, y: -0.18, n: 2.2 },
+        { z: 5.5, w: 0.58, h: 0.64, hb: 0.62, y: -0.1, n: 2.4 }, { z: 7.0, w: 0.68, h: 0.56, hb: 0.6, y: -0.16, n: 2.6 },
+        { z: 9.0, w: 0.9, h: 0.58, hb: 0.6, y: -0.16, n: 2.8 }, { z: 10.6, w: 1.0, h: 0.6, hb: 0.6, y: -0.12, n: 3 },
+        { z: 11.8, w: 0.98, h: 0.52, hb: 0.52, y: -0.06, n: 3 }, { z: 12.7, w: 0.84, h: 0.42, hb: 0.42, y: -0.04, n: 3 },
+        { z: 13.35, w: 0.66, h: 0.33, hb: 0.33, y: -0.03, n: 3 },
       ]);
       for (const s of [1, -1]) {
-        a.loft([{ z: 5.0, w: 0.3, h: 0.46, hb: 0.4, y: -0.3, n: 2.2 }, { z: 6.2, w: 0.34, h: 0.5, y: -0.3 }, { z: 8.8, w: 0.3, h: 0.42, y: -0.25 }], { x: 0.86 * s, cap0: false, seg: 14 });
-        a.face([0.86 * s, -0.32, 5.08], 0.26, 0.38);
+        a.loft([{ z: 4.9, w: 0.36, h: 0.27, hb: 0.27, y: -0.18, n: 2.4 }, { z: 5.9, w: 0.37, h: 0.3, y: -0.2, n: 2.4 }, { z: 8.6, w: 0.3, h: 0.3, y: -0.2 }], { x: 0.8 * s, cap0: false, seg: 14 });
+        a.face([0.8 * s, -0.18, 4.98], 0.31, 0.24);
       }
-      a.wing([[0.6, 4.4, 11.6, 0.3], [1.05, 6.4, 11.6, 0.28], [1.45, 7.6, 11.6, 0.26], [4.25, 9.75, 11.0, 0.08]], { y: -0.05 });
-      const sR = a.bone('stab', [1.6, 0.0, 12.6], [1, 0, 0], 1), sL = a.bone('stab', [-1.6, 0.0, 12.6], [1, 0, 0], -1);
-      a.wing([[0.75, 11.0, 13.6, 0.15], [2.85, 12.9, 13.9, 0.05]], { y: 0.0, bones: [sR, sL] });
-      a.fin([[0, 9.2, 13.3, 0.22], [2.55, 11.9, 13.4, 0.08]], { y: 0.45, accentFrom: 1.8 });
-      a.nozzle(0.42, 0.05, 13.2, 0.4, 0.37, 0.95); a.nozzle(-0.42, 0.05, 13.2, 0.4, 0.37, 0.95);
-      a.canopy(4.2, 0.54, 0.42, 0.52, 1.55);
+      a.wing([[0.45, 3.9, 10.25, 0.2], [1.13, 5.8, 10.17, 0.2], [1.6, 6.85, 10.06, 0.19], [4.03, 8.36, 9.42, 0.07]], { y: 0.02, dih: -2 });
+      const sR = a.bone('stab', [1.55, -0.12, 12.25], [1, 0, 0], 1), sL = a.bone('stab', [-1.55, -0.12, 12.25], [1, 0, 0], -1);
+      a.wing([[0.95, 11.05, 13.2, 0.12], [2.9, 12.57, 13.12, 0.04]], { y: -0.12, bones: [sR, sL] });
+      a.fin([[0, 9.6, 13.3, 0.24], [0.4, 10.3, 13.3, 0.2], [1.96, 12.2, 13.3, 0.07]], { y: 0.56, accentFrom: 1.45 });
+      a.nozzle(0.31, -0.04, 12.5, 0.33, 0.3, 0.88); a.nozzle(-0.31, -0.04, 12.5, 0.33, 0.3, 0.88);
+      a.canopy(4.05, 0.32, 0.47, 0.44, 1.7);
       a.gun(-0.75, 0.12, 5.0);
-      a.rail(4.36, -0.05, 9.0, 11.3); a.rail(-4.36, -0.05, 9.0, 11.3);
-      a.missile(-0.48, -0.86, 8.6, 'rad'); a.missile(0.48, -0.86, 8.6, 'rad');
-      a.missile(-2.55, -0.44, 8.2, 'rad', true); a.missile(2.55, -0.44, 8.2, 'rad', true);
-      a.missile(-4.42, -0.05, 8.8, 'ir'); a.missile(4.42, -0.05, 8.8, 'ir');
-      a.tip(4.45, -0.05, 11.0); a.tip(-4.45, -0.05, 11.0);
+      a.rail(4.1, -0.11, 8.0, 9.55); a.rail(-4.1, -0.11, 8.0, 9.55);
+      a.missile(-0.56, -0.96, 7.0, 'rad'); a.missile(0.56, -0.96, 7.0, 'rad');
+      a.missile(-2.45, -0.5, 7.2, 'rad', true); a.missile(2.45, -0.5, 7.2, 'rad', true);
+      a.missile(-4.18, -0.12, 7.9, 'ir'); a.missile(4.18, -0.12, 7.9, 'ir');
+      a.tip(4.1, -0.11, 9.3); a.tip(-4.1, -0.11, 9.3);
     },
   },
   {
-    id: 'mig21', era: 'jet', name: 'MiG-21bis 魚床', en: 'MIG-21BIS FISHBED', country: '蘇聯', first: 1955, len: 14.5, span: 7.15,
+    id: 'mig21', era: 'jet', name: 'MiG-21bis 魚床', en: 'MIG-21BIS FISHBED', country: '蘇聯', first: 1955, len: 14.5, span: 7.15, flame: 'ru',
     gun: 'GSh-23L 23 mm 機砲', est: true, note: '機頭進氣、中央有震波錐的經典三角翼，產量最多的超音速戰機。（這架的數值是估計值）',
     paint: { pattern: 3, top: '#b9bec2', bot: '#c5c9cc', c2: '#b9bec2', c3: '#b9bec2', scale: 0.3, glass: '#2f3b45', metal: 0.72, gloss: 0.6 },
     st: { hp: 165, vab: 1420, vmax: 790, vtab: 600, vt: 450, vc: 760, vr: 144, vs: 270, vcl: 580, aab: 52, acc: 28, wb: 34, wh: 14, roll: 200, resp: 6,
@@ -332,22 +338,33 @@ const AC_DEFS = [
   {
     id: 'zero', era: 'prop', name: '零式艦戰 21 型', en: 'A6M2 ZERO', country: '日本', first: 1939, len: 9.06, span: 12.0,
     gun: '九九式 20 mm ×2 + 九七式 7.7 mm ×2', est: true, note: '極輕的艦載戰鬥機，迴轉半徑最小，但機身脆弱、高速時滾轉變鈍。',
-    paint: { pattern: 0, top: '#3f4b36', bot: '#b9b9aa', c2: '#3f4b36', c3: '#3f4b36', scale: 0.3, rad: '#262624', radZ: 1.75, glass: '#34404a', metal: 0.04, gloss: 0.25 },
+    // early-war scheme after the Tamiya A6M2 sheet (Akagi, Dec 1941): ameiro grey-green all over, black cowling,
+    // red command band round the rear fuselage
+    paint: { pattern: 0, top: '#b9b59e', bot: '#b2ae97', c2: '#b9b59e', c3: '#b9b59e', scale: 0.3, rad: '#232322', radZ: 1.72, glass: '#3a4752', metal: 0.04, gloss: 0.3,
+      band: [5.95, 6.35], bandOn: true, bandCol: '#a32b25' },
     st: { hp: 70, vab: 533, vmax: 510, vtab: 370, vt: 355, vc: 320, vr: 110, vs: 125, vcl: 320, aab: 10, acc: 8.5, wb: 38, wh: 11, roll: 120, rollHi: 0.5, resp: 7,
       abFuel: 20, abRegen: 15, flareCd: 0, flareDur: 0, detect: 4.0, radar: 0, scan: 0, gunRate: 18, gunDmg: 3.6, ammo: 700, prop: true, bullet: 820 },
     loadout: [],
     build(a) {
       a.prop(-0.15, 0.04, 1.45, 3, 0.22, 0.45);
-      a.loft([{ z: 0.12, w: 0.5, h: 0.5, y: 0.04 }, { z: 0.5, w: 0.62, h: 0.62, y: 0.04 }, { z: 1.7, w: 0.6, h: 0.6, y: 0.04 }], { cap0: false, cap1: false, seg: 22 });
+      a.loft([{ z: 0.12, w: 0.5, h: 0.5, y: 0.04 }, { z: 0.5, w: 0.6, h: 0.6, y: 0.04 }, { z: 1.7, w: 0.58, h: 0.58, y: 0.04 }], { cap0: false, cap1: false, seg: 22 });
       a.face([0, 0.04, 0.2], 0.48, 0.48);
       a.body([
-        { z: 1.6, w: 0.6, h: 0.6, y: 0.04 }, { z: 2.8, w: 0.56, h: 0.62, hb: 0.55, y: 0.04 }, { z: 4.5, w: 0.5, h: 0.6, hb: 0.5, y: 0.04 },
-        { z: 6.5, w: 0.34, h: 0.45, hb: 0.38, y: 0.1 }, { z: 8.2, w: 0.16, h: 0.3, hb: 0.22, y: 0.16 }, { z: 9.06, w: 0.04, h: 0.18, hb: 0.1, y: 0.2 },
+        { z: 1.6, w: 0.58, h: 0.58, y: 0.04 }, { z: 2.8, w: 0.55, h: 0.6, hb: 0.55, y: 0.04 }, { z: 4.5, w: 0.5, h: 0.58, hb: 0.5, y: 0.05 },
+        { z: 6.5, w: 0.34, h: 0.44, hb: 0.38, y: 0.1 }, { z: 8.2, w: 0.16, h: 0.3, hb: 0.22, y: 0.16 }, { z: 9.06, w: 0.04, h: 0.18, hb: 0.1, y: 0.2 },
       ]);
-      a.wing([[0.45, 1.9, 4.3, 0.34], [5.4, 3.0, 4.15, 0.12], [5.85, 3.25, 4.05, 0.08], [6.0, 3.5, 3.95, 0.05]], { y: -0.42, dih: 6 });
-      a.wing([[0.15, 7.7, 8.95, 0.1], [1.9, 8.25, 8.9, 0.05], [2.05, 8.45, 8.85, 0.04]], { y: 0.18 });
-      a.fin([[0, 7.4, 9.05, 0.12], [0.8, 8.1, 9.05, 0.1], [1.15, 8.5, 8.95, 0.06], [1.25, 8.7, 8.85, 0.04]], { y: 0.3, accentFrom: 0.8 });
-      a.canopy(4.1, 0.5, 0.32, 0.4, 1.35);
+      // long, nearly straight-edged wing with rounded (folding) tips and 6.5 deg dihedral
+      a.wing([[0.45, 1.85, 4.35, 0.34], [4.9, 2.75, 4.2, 0.13], [5.55, 3.0, 4.12, 0.09], [5.87, 3.25, 4.02, 0.06], [6.0, 3.55, 3.9, 0.04]], { y: -0.42, dih: 6.5 });
+      a.wing([[0.15, 7.62, 8.95, 0.1], [1.95, 8.12, 8.92, 0.06], [2.25, 8.32, 8.86, 0.04], [2.35, 8.55, 8.8, 0.03]], { y: 0.18 });
+      a.fin([[0, 7.35, 9.06, 0.12], [0.8, 8.05, 9.06, 0.1], [1.12, 8.42, 8.98, 0.07], [1.26, 8.66, 8.86, 0.04]], { y: 0.3, accentFrom: 0.85 });
+      // greenhouse canopy: glass bubble plus the frame hoops (painted like the airframe)
+      a.canopy(3.85, 0.5, 0.32, 0.4, 1.2);
+      a.mat(MAT.PAINT);
+      for (const z of [2.95, 3.3, 3.7, 4.05, 4.45, 4.8]) {
+        const t = (z - 3.85) / 1.2, k = Math.sqrt(Math.max(0, 1 - t * t));
+        a.b.loft([{ z, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }, { z: z + 0.035, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }], { cap0: false, cap1: false, seg: 16 });
+      }
+      a.mat(MAT.PAINT);
       for (const s of [1, -1]) { a.gun(2.4 * s, -0.36, 2.4); a.gun(0.16 * s, 0.48, 1.0); }
       a.tip(6.0, 0.2, 3.7); a.tip(-6.0, 0.2, 3.7);
     },
@@ -389,20 +406,22 @@ function missileShape(b, x, y, z, kind) {
 }
 // missiles hung under a hi-detail model (same shapes and slot numbering as the procedural builder)
 function buildStores(list) {
-  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [];
+  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [], out = [];
   for (const s of list) {
     const isIr = s.k === 'ir', slot = isIr ? 20 + (++nI) : ++nR, [L, r] = MSL_DIM[s.k] || MSL_DIM.rad;
-    if (s.ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + s.ph / 2, s.z + L * 0.48], 0.07, s.ph + 0.04, L * 0.5); }
+    const ph = s.ph || (s.pylon ? 0.46 : 0); // 'pylon' stores hang 0.46 m below the wing (see tools/hd/build_hd.py)
+    if (ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + ph / 2, s.z + L * 0.48], 0.07, ph + 0.04, L * 0.5); }
     b.slot = slot; missileShape(b, s.x, s.y, s.z, s.k); b.slot = 0;
     (isIr ? pylI : pylR).push([s.x, s.y, s.z + L * 0.5]);
+    out.push({ k: s.k in MSL_DIM ? s.k : 'rad', slot, x: s.x, y: s.y, z: s.z });
   }
-  return { data: nR + nI ? b.data() : null, pylR, pylI };
+  return { data: nR + nI ? b.data() : null, pylR, pylI, list: out };
 }
 
 // ---- builder context exposed to the definitions ----
 function buildAircraftModel(def) {
   const b = new MB();
-  const meta = { bones: [null], guns: [], flames: [], tips: [], nR: 0, nI: 0, pylR: [], pylI: [], props: [] };
+  const meta = { bones: [null], guns: [], flames: [], tips: [], nR: 0, nI: 0, pylR: [], pylI: [], props: [], stores: [] };
   const a = {
     b, meta,
     mat(m) { b.mat = m; },
@@ -431,6 +450,7 @@ function buildAircraftModel(def) {
       b.slot = slot; missileShape(b, x, y, z, kind);
       b.slot = 0; b.mat = MAT.PAINT;
       (isIr ? meta.pylI : meta.pylR).push([x, y, z + L * 0.5]);
+      meta.stores.push({ k: kind, slot, x, y, z });
     },
     prop(z, y, r, blades, sr, slen) {
       const bi = a.bone('prop', [0, y, z], [0, 0, 1], 0);
@@ -468,6 +488,7 @@ function buildAircraftModel(def) {
   meta.flames = meta.flames.map(f => ({ p: sh(f.p), r: f.r }));
   meta.tips = meta.tips.map(t => ({ p: sh(t.p), bone: t.bone }));
   meta.props = meta.props.map(p => ({ z: p.z - shift, y: p.y, r: p.r }));
+  meta.stores = meta.stores.map(s => Object.assign({}, s, { z: s.z - shift }));
   meta.shift = shift; meta.radius = rad; meta.length = zmax - zmin;
   meta.data = b.data();
   return meta;
