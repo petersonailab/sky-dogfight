@@ -377,6 +377,28 @@ const AC_DEFS = [
   },
 ];
 
+// missile body for the stores on the wing: length, radius by kind; z is the nose
+const MSL_DIM = { big: [3.9, 0.19], rad: [3.65, 0.09], ir: [2.9, 0.065] };
+function missileShape(b, x, y, z, kind) {
+  const [L, r] = MSL_DIM[kind];
+  b.mat = MAT.WHITE; b.cyl([x, y, z + r * 2.4], [x, y, z + L], r, r * 0.95, { seg: 8, cap1: true });
+  b.mat = MAT.GRAY; b.cyl([x, y, z], [x, y, z + r * 2.4], 0.004, r, { seg: 8 });
+  const fs = kind === 'big' ? 0.3 : 0.2, fc = kind === 'big' ? 0.5 : 0.32;
+  b.box([x, y, z + L - fc * 0.6], fs * 2 + r * 2, 0.015, fc); b.box([x, y, z + L - fc * 0.6], 0.015, fs * 2 + r * 2, fc);
+  if (kind === 'ir') { b.box([x, y, z + 0.45], 0.24, 0.012, 0.14); b.box([x, y, z + 0.45], 0.012, 0.24, 0.14); }
+}
+// missiles hung under a hi-detail model (same shapes and slot numbering as the procedural builder)
+function buildStores(list) {
+  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [];
+  for (const s of list) {
+    const isIr = s.k === 'ir', slot = isIr ? 20 + (++nI) : ++nR, [L, r] = MSL_DIM[s.k] || MSL_DIM.rad;
+    if (s.ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + s.ph / 2, s.z + L * 0.48], 0.07, s.ph + 0.04, L * 0.5); }
+    b.slot = slot; missileShape(b, s.x, s.y, s.z, s.k); b.slot = 0;
+    (isIr ? pylI : pylR).push([s.x, s.y, s.z + L * 0.5]);
+  }
+  return { data: nR + nI ? b.data() : null, pylR, pylI };
+}
+
 // ---- builder context exposed to the definitions ----
 function buildAircraftModel(def) {
   const b = new MB();
@@ -404,14 +426,9 @@ function buildAircraftModel(def) {
     // the shader hides the first N of each group once they have been fired.
     missile(x, y, z, kind, pylon) {
       const isIr = kind === 'ir', slot = isIr ? 20 + (++meta.nI) : ++meta.nR;
-      const L = kind === 'big' ? 3.9 : kind === 'rad' ? 3.65 : 2.9, r = kind === 'big' ? 0.19 : kind === 'rad' ? 0.09 : 0.065;
+      const [L, r] = MSL_DIM[kind];
       if (pylon) { b.mat = MAT.PAINT; b.slot = 0; b.box([x, y + r + 0.14, z + L * 0.48], 0.07, 0.3, L * 0.5); }
-      b.slot = slot;
-      b.mat = MAT.WHITE; b.cyl([x, y, z + r * 2.4], [x, y, z + L], r, r * 0.95, { seg: 8, cap1: true });
-      b.mat = MAT.GRAY; b.cyl([x, y, z], [x, y, z + r * 2.4], 0.004, r, { seg: 8 });
-      const fs = kind === 'big' ? 0.3 : 0.2, fc = kind === 'big' ? 0.5 : 0.32;
-      b.box([x, y, z + L - fc * 0.6], fs * 2 + r * 2, 0.015, fc); b.box([x, y, z + L - fc * 0.6], 0.015, fs * 2 + r * 2, fc);
-      if (kind === 'ir') { b.box([x, y, z + 0.45], 0.24, 0.012, 0.14); b.box([x, y, z + 0.45], 0.012, 0.24, 0.14); }
+      b.slot = slot; missileShape(b, x, y, z, kind);
       b.slot = 0; b.mat = MAT.PAINT;
       (isIr ? meta.pylI : meta.pylR).push([x, y, z + L * 0.5]);
     },

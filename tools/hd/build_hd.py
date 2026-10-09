@@ -1,0 +1,337 @@
+"""Usage: put the source files in tools/hd/src/<id>.glb, build msimp (see msimp.cpp), run python3 tools/hd/build_hd.py [ids]
+
+Convert the source GLBs into the game's compact hi-detail model format (models/<id>.bin).
+
+Per model: orient into the game frame, drop parts that should not be seen in flight (landing gear, cockpit
+clutter, tanks), tag the missiles that are part of the model with launch slots, simplify heavy meshes with
+meshoptimizer, shrink/re-encode textures to power-of-two WebP, and measure where procedural missiles hang,
+where the afterburner flames start and where the wingtips are.
+"""
+import sys, os, io, json, re, struct, subprocess, tempfile
+import numpy as np
+from PIL import Image
+from glb import image_bytes, material_info
+from parts import to_game
+from stores import comp_table
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, '..', '..', 'models')
+PROC = json.load(open(os.path.join(HERE, 'procmeta.json')))
+MSL = {'big': (3.9, 0.19), 'rad': (3.65, 0.09), 'ir': (2.9, 0.065)}  # length, radius (matches the JS builder)
+
+
+def S(k, x, z, **o):
+    d = dict(k=k, x=x, z=z); d.update(o); return d
+
+
+CFG = {
+    'f16': dict(yaw=0, tex=2048, credit=dict(title='F16-C Falcon', author='Carlos.Maciel', license='CC BY 4.0',
+                                             url='https://sketchfab.com/3d-models/f16-c-falcon-4bc2ff75dc584af2afd0aa6bd8b79015'),
+                stores=[S('rad', -3.06, 2.0), S('rad', 3.06, 2.0), S('rad', -4.73, 2.03, rail=True), S('rad', 4.73, 2.03, rail=True),
+                        S('ir', -4.03, 2.0), S('ir', 4.03, 2.0)]),
+    'f22': dict(yaw=0, tex=2048, target=42000, credit=dict(title='F22 RAPTOR', author='sxnneh', license='Sketchfab Standard',
+                                                            url='https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'),
+                rm_node=r'^(wheel_|gear_|steeringwheel|dials_|weapon_1a|door_pside_f|bonnet)',
+                rm_mat=r'^(vc_1|vc_2|vc_4|vc_5|vc_6|vc_7|vc_mfd_btn|screens|script_rt_dials_lazer|wing_broken|f22_weps_t|glass_in)$',
+                internal=dict(rad=[[-0.34, -0.55, -0.9], [0.34, -0.55, -0.9]] * 3, ir=[[-1.12, -0.35, -1.1], [1.12, -0.35, -1.1]])),
+    'f14': dict(yaw=244, tex=1024, credit=dict(title='F14', author='manilov.ap', license='CC BY 4.0',
+                                               url='https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af'),
+                rm_node=r'^(Torus\d+|Cylinder(48|50|51|54|55|56|58|60|61|63|64|65|66|67)|Box(09|10|60|61|64|65|66|67|68)|Line03|Object09)-FACES',
+                stores=[S('big', -0.48, -1.0), S('big', 0.48, -1.0), S('big', -0.48, 3.0), S('big', 0.48, 3.0),
+                        S('ir', -2.9, 0.43), S('ir', 2.9, 0.43), S('ir', -2.43, 1.83), S('ir', 2.43, 1.83)]),
+    'su27': dict(yaw=90, tex=1024, credit=dict(title='Sukhoi Su-27M (USSR)', author='42manako', license='CC BY-NC 4.0',
+                                               url='https://sketchfab.com/3d-models/sukhoi-su-27m-ussr-af788ebfb576454ca5eaac2313a30e5b'),
+                 rm_comp=[dict(x=(0, 0.4), z=(-5.4, -2.0), y=(-9, 0.1), smax=3.0),
+                          dict(x=(1.35, 2.35), z=(2.2, 3.4), y=(-9, 0.3), smax=2.5),
+                          dict(x=(2.3, 2.8), z=(0.3, 1.2), y=(-9, 1.0), sxmin=0.6)],
+                 stores=[S('rad', -3.36, 3.32, rail=True), S('rad', 3.36, 3.32, rail=True), S('rad', -1.02, 1.55, rail=True), S('rad', 1.02, 1.55, rail=True),
+                         S('ir', -4.55, 3.32, rail=True), S('ir', 4.55, 3.32, rail=True), S('ir', -6.18, 4.37, rail=True), S('ir', 6.18, 4.37, rail=True)]),
+    'typhoon': dict(yaw=90, tex=1024, credit=dict(title='Eurofighter Typhoon - Fighter Jet - Free', author='bohmerang', license='CC BY-NC-SA 4.0',
+                                                  url='https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'),
+                    rm_node=r'^(LandingOn|LandingLight)',
+                    stores=[S('rad', -3.65, 1.6), S('rad', 3.65, 1.6), S('rad', -0.75, 1.0), S('rad', 0.75, 1.0),
+                            S('ir', -4.45, 1.05), S('ir', 4.45, 1.05), S('ir', -2.7, 2.3, pylon=True), S('ir', 2.7, 2.3, pylon=True)]),
+    'm2000': dict(yaw=180, tex=1024, target=44000, err=0.01, opts=32, credit=dict(title='Mirage 2000-5F', author='Jeyhun1985', license='CC BY 4.0',
+                                                               url='https://sketchfab.com/3d-models/mirage-2000-5f-3894c147f6474d5eb6308b8d2724a914'),
+                  glb_stores=[dict(k='rad', c=(-0.74, -1.04, -1.36), L=3.13), dict(k='rad', c=(0.74, -1.04, -1.36), L=3.13),
+                              dict(k='rad', c=(-0.95, -0.98, 2.8), L=3.11), dict(k='rad', c=(0.95, -0.98, 2.8), L=3.11),
+                              dict(k='ir', c=(-3.32, -1.0, 2.27), L=2.76), dict(k='ir', c=(3.32, -1.0, 2.27), L=2.76)]),
+    'mig21': dict(yaw=180, tex=1024, target=46000, credit=dict(title='1972 MiG-21bis', author='OUTPISTON', license='CC BY-NC-SA 4.0',
+                                                               url='https://sketchfab.com/3d-models/1972-mig-21bis-0fdbda95ec1a4121863fff5065c2fc51'),
+                  rm_comp=[dict(x=(2.2, 2.8), z=(-1.6, 3.8), y=(-0.8, -0.15), ymaxmax=-0.2)],
+                  stores=[S('rad', -2.5, 1.0, rail=True), S('rad', 2.5, 1.0, rail=True), S('ir', -1.6, 1.2, pylon=True), S('ir', 1.6, 1.2, pylon=True)]),
+}
+
+
+def in_rng(v, r):
+    return r[0] <= v <= r[1]
+
+
+def build(name):
+    cfg = CFG[name]
+    js, binc, prims, info = to_game(name, yaw=cfg.get('yaw'))
+    nprim = len(prims)
+    # ---------- part removal (triangle masks) ----------
+    keep = [np.ones(len(p['tri']), bool) for p in prims]
+    rmn = re.compile(cfg['rm_node']) if cfg.get('rm_node') else None
+    rmm = re.compile(cfg['rm_mat']) if cfg.get('rm_mat') else None
+    for i, p in enumerate(prims):
+        names = p['path'].split('/')
+        mi = material_info(js, p['mat'])
+        if rmn and any(rmn.search(n or '') for n in names):
+            keep[i][:] = False
+        if rmm and rmm.search(mi['name'] or ''):
+            keep[i][:] = False
+        a = mi['factor'][3] if len(mi['factor']) > 3 else 1
+        if mi['alpha'] == 'BLEND' and a < 0.05 and mi['image'] is None:
+            keep[i][:] = False  # fully transparent helper geometry
+    V, F, G, lab, mn, mx, cnt = comp_table(prims)
+    offs = np.cumsum([0] + [len(p['tri']) for p in prims])
+    tri_keep = np.concatenate(keep)
+    ctr = (mn + mx) / 2; sz = mx - mn
+    removed_comps = set()
+    for rule in cfg.get('rm_comp', []):
+        for c in range(len(cnt)):
+            x, y, z = ctr[c]
+            if not (in_rng(abs(x), rule['x']) and in_rng(z, rule['z']) and in_rng(y, rule['y'])):
+                continue
+            if 'smax' in rule and sz[c].max() > rule['smax']:
+                continue
+            if 'sxmin' in rule and sz[c][0] < rule['sxmin']:
+                continue
+            if 'ymaxmax' in rule and mx[c][1] > rule['ymaxmax']:
+                continue
+            removed_comps.add(c)
+    if removed_comps:
+        tri_keep &= ~np.isin(lab, list(removed_comps))
+    # ---------- missiles that are part of the model: slots ----------
+    tri_slot = np.zeros(len(F), np.int16)
+    glb_launch = {'rad': [], 'ir': []}
+    nR = nI = 0
+    for st in cfg.get('glb_stores', []):
+        cx, cy, cz = st['c']; L = st['L']
+        sel = []
+        for c in range(len(cnt)):
+            x, y, z = ctr[c]
+            if abs(x - cx) < 0.3 and abs(z - cz) < L / 2 + 0.25 and cy - 0.32 < y < cy + 0.1 and mx[c][1] < cy + 0.2:
+                sel.append(c)
+        slot = (++0)
+        if st['k'] == 'ir':
+            nI += 1; slot = 20 + nI; glb_launch['ir'].append([cx, cy, cz])
+        else:
+            nR += 1; slot = nR; glb_launch['rad'].append([cx, cy, cz])
+        m = np.isin(lab, sel) & tri_keep
+        tri_slot[m] = slot
+        print(f'  glb store {st["k"]} at {st["c"]}: {len(sel)} parts, {m.sum()} tris -> slot {slot}')
+    Fk = F[tri_keep]; Gk = G[tri_keep]; Sk = tri_slot[tri_keep]
+    print(f'{name}: kept {len(Fk)} / {len(F)} tris, removed comps {len(removed_comps)}')
+    # ---------- measurements on the kept geometry ----------
+    used_v = np.unique(Fk)
+    VK = V[used_v]
+
+    TP = V[Fk]  # kept triangles (n,3,3)
+
+    def surf_low(x, z):
+        """lowest surface hit by a vertical ray at (x, z), or None"""
+        a, b, c = TP[:, 0], TP[:, 1], TP[:, 2]
+        v0x, v0z = b[:, 0] - a[:, 0], b[:, 2] - a[:, 2]
+        v1x, v1z = c[:, 0] - a[:, 0], c[:, 2] - a[:, 2]
+        px, pz = x - a[:, 0], z - a[:, 2]
+        den = v0x * v1z - v1x * v0z
+        ok = np.abs(den) > 1e-12
+        u = np.where(ok, (px * v1z - v1x * pz) / np.where(ok, den, 1), -1)
+        v = np.where(ok, (v0x * pz - px * v0z) / np.where(ok, den, 1), -1)
+        hit = ok & (u >= -1e-6) & (v >= -1e-6) & (u + v <= 1 + 1e-6)
+        if not hit.any():
+            return None
+        y = a[hit, 1] + u[hit] * (b[hit, 1] - a[hit, 1]) + v[hit] * (c[hit, 1] - a[hit, 1])
+        return float(y.min())
+
+    def mount_y(x, zc, half):
+        ys = []
+        for dz in np.linspace(-half, half, 9):
+            for dx in (-0.03, 0.0, 0.03):
+                y = surf_low(x + dx, zc + dz)
+                if y is not None:
+                    ys.append(y)
+        return min(ys) if ys else 0.0
+
+    stores = []
+    for st in cfg.get('stores', []):
+        L, r = MSL[st['k']]
+        y_m = mount_y(st['x'], st['z'], L * 0.3)
+        gap = 0.32 + 0.14 if st.get('pylon') else 0.015
+        y = y_m - r - gap
+        stores.append(dict(k=st['k'], x=round(st['x'], 3), y=round(y, 3), z=round(st['z'] - L / 2, 3), pylon=bool(st.get('pylon'))))
+    # flames: refine the procedural nozzle positions on the real geometry
+    flames = []
+    for f in PROC[name]['flames']:
+        fx, fy, fz = f['p']; fr = f['r']
+        m = (np.hypot(VK[:, 0] - fx, VK[:, 1] - fy) < fr * 1.7) & (VK[:, 2] > fz - 3.5)
+        if m.sum() < 5:
+            flames.append(dict(p=[fx, fy, fz], r=fr)); continue
+        ze = float(VK[m, 2].max())
+        ring = m & (VK[:, 2] > ze - 0.35)
+        x0, x1 = VK[ring, 0].min(), VK[ring, 0].max(); y0, y1 = VK[ring, 1].min(), VK[ring, 1].max()
+        rr = 0.5 * min(x1 - x0, y1 - y0) * 0.86
+        flames.append(dict(p=[round(float((x0 + x1) / 2), 3), round(float((y0 + y1) / 2), 3), round(ze - 0.05, 3)], r=round(float(min(max(rr, fr * 0.6), fr * 1.4)), 3)))
+    # wingtips
+    tips = []
+    xm = VK[:, 0].max()
+    for s in (1, -1):
+        m = (VK[:, 0] * s > xm * 0.95)
+        tips.append([round(float(s * xm), 3), round(float(VK[m, 1].mean()), 3), round(float(VK[m, 2].max() - 0.2), 3)])
+    radius = float(np.linalg.norm(VK, axis=1).max())
+    acc_y = float(VK[:, 1].max()) - cfg.get('band', 0.5)  # fin-tip band painted in the player's / team colour
+    return dict(js=js, binc=binc, prims=prims, V=V, F=Fk, G=Gk, S=Sk, meta=dict(
+        flames=flames, tips=tips, stores=stores, launch=glb_launch, internal=cfg.get('internal'), radius=round(radius, 3), accY=round(acc_y, 3)), info=info)
+
+
+def pot_floor(n):
+    p = 1
+    while p * 2 <= n:
+        p *= 2
+    return p
+
+
+def encode_textures(js, binc, img_ids, cfg, alpha_imgs):
+    out = {}
+    for img in img_ids:
+        data, mime = image_bytes(js, binc, img)
+        im = Image.open(io.BytesIO(data))
+        has_a = im.mode in ('RGBA', 'LA', 'P') and img in alpha_imgs
+        im = im.convert('RGBA' if has_a else 'RGB')
+        lim = cfg.get('tex', 1024)
+        w, h = im.size
+        tw, th = pot_floor(min(w, lim)), pot_floor(min(h, lim))
+        if (tw, th) != (w, h):
+            im = im.resize((tw, th), Image.LANCZOS)
+        if has_a and np.asarray(im)[:, :, 3].min() > 250:
+            im = im.convert('RGB'); has_a = False
+        b = io.BytesIO()
+        im.save(b, 'WEBP', quality=86 if not has_a else 90, method=6)
+        out[img] = dict(data=b.getvalue(), w=tw, h=th, alpha=has_a)
+    return out
+
+
+def write_model(name, R):
+    cfg = CFG[name]
+    js, binc, prims = R['js'], R['binc'], R['prims']
+    V = R['V']; F = R['F']; G = R['G']; Sl = R['S']
+    # per-vertex attributes (global vertex numbering = concatenated prims)
+    NOR = np.concatenate([p['nor'] if p['nor'] is not None else np.tile([0, 1, 0], (len(p['pos']), 1)) for p in prims]).astype(np.float32)
+    UV = np.concatenate([p['uv'][:, :2] if p['uv'] is not None else np.zeros((len(p['pos']), 2)) for p in prims]).astype(np.float32)
+    GV = np.concatenate([np.full(len(p['pos']), gi) for gi, p in enumerate(prims)])
+    # material per prim -> group key (same material => same group)
+    mat_of_prim = [p['mat'] for p in prims]
+    # slot per vertex: vertices of slotted triangles
+    SV = np.zeros(len(V), np.int16)
+    SV[F[Sl > 0].ravel()] = np.repeat(Sl[Sl > 0], 3)
+    # remap vertices: only used, unique (pos, nor, uv, slot, material)
+    used = np.unique(F)
+    mat_v = np.array([mat_of_prim[g] for g in GV])
+    key = np.concatenate([np.round(V[used] * 2000), np.round(NOR[used] * 100), np.round(UV[used] * 8000), SV[used][:, None], mat_v[used][:, None]], axis=1)
+    _, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
+    newid = np.full(len(V), -1, np.int64)
+    newid[used] = inv.ravel()
+    vsrc = used[first]
+    Fn = newid[F]
+    pos = V[vsrc].astype(np.float32); nor = NOR[vsrc]; uv = UV[vsrc]; slot = SV[vsrc]; vmat = mat_v[vsrc]
+    nv = len(pos)
+    print(f'  unique verts {nv}, tris {len(Fn)}')
+    # simplify
+    target = cfg.get('target')
+    if target and len(Fn) > target:
+        attrs = np.concatenate([nor * 0.5, uv * 1.0, (vmat[:, None] * 10.0)], axis=1).astype(np.float32)
+        w = np.ones(attrs.shape[1], np.float32)
+        lock = np.zeros(nv, np.uint8)
+        with tempfile.TemporaryDirectory() as td:
+            fi = os.path.join(td, 'in.bin'); fo = os.path.join(td, 'out.bin')
+            with open(fi, 'wb') as f:
+                f.write(struct.pack('<IIIIfI', nv, len(Fn) * 3, attrs.shape[1], target * 3, cfg.get('err', 0.008), cfg.get('opts', 0)))
+                f.write(pos.tobytes()); f.write(attrs.tobytes()); f.write(w.tobytes()); f.write(lock.tobytes())
+                f.write(Fn.astype(np.uint32).tobytes())
+            subprocess.run([os.path.join(HERE, 'msimp'), fi, fo], check=True)
+            b = open(fo, 'rb').read()
+            n, err = struct.unpack_from('<If', b, 0)
+            Fn = np.frombuffer(b, np.uint32, n, 8).reshape(-1, 3).astype(np.int64)
+            print(f'  simplified to {len(Fn)} tris (error {err:.4f})')
+        used2 = np.unique(Fn)
+        remap = np.full(nv, -1, np.int64); remap[used2] = np.arange(len(used2))
+        Fn = remap[Fn]; pos = pos[used2]; nor = nor[used2]; uv = uv[used2]; slot = slot[used2]; vmat = vmat[used2]
+        nv = len(pos)
+    # groups by material (triangle's material = its first vertex's material)
+    tmat = vmat[Fn[:, 0]]
+    mats = sorted(set(tmat.tolist()))
+    groups = []; order = []
+    alpha_imgs = set()
+    minfo = {m: material_info(js, m) for m in mats}
+    for m in mats:
+        mi = minfo[m]
+        if mi['alpha'] in ('BLEND', 'MASK') and mi['image'] is not None:
+            alpha_imgs.add(mi['image'])
+    def mode_of(mi):
+        return 2 if mi['alpha'] == 'BLEND' else (1 if mi['alpha'] == 'MASK' else 0)
+    mats.sort(key=lambda m: (mode_of(minfo[m]), m))
+    idx_parts = []; start = 0
+    img_ids = sorted(set(minfo[m]['image'] for m in mats if minfo[m]['image'] is not None))
+    tex_index = {img: i for i, img in enumerate(img_ids)}
+    for m in mats:
+        tris = Fn[tmat == m]
+        mi = minfo[m]
+        f = list(mi['factor']) + [1.0] * (4 - len(mi['factor']))
+        ext = (js['materials'][m].get('extensions', {}) if m >= 0 else {})
+        if 'KHR_materials_transmission' in ext:
+            mi['alpha'] = 'BLEND'; f[3] = min(f[3], 0.55)
+        groups.append(dict(start=start, count=int(tris.size), tex=tex_index.get(mi['image'], -1), color=[round(float(c), 4) for c in f[:4]],
+                           mode=mode_of(mi), double=bool(mi['double']), cutoff=mi.get('cutoff', 0.5), name=mi['name'][:24]))
+        idx_parts.append(tris.ravel()); start += tris.size
+    idx = np.concatenate(idx_parts)
+    texs = encode_textures(js, binc, img_ids, cfg, alpha_imgs)
+    # quantise vertices: pos int16 (normalised to bbox), slot int16, normal int8x3 (+pad), uv uint16x2 (normalised to uv bbox)
+    pmin = pos.min(0); pmax = pos.max(0); pc = (pmin + pmax) / 2; ph = np.maximum((pmax - pmin) / 2, 1e-4)
+    q = np.clip(np.round((pos - pc) / ph * 32767), -32767, 32767).astype(np.int16)
+    nrm = nor / np.maximum(np.linalg.norm(nor, axis=1, keepdims=True), 1e-9)
+    qn = np.clip(np.round(nrm * 127), -127, 127).astype(np.int8)
+    umin = uv.min(0); umax = uv.max(0); ur = np.maximum(umax - umin, 1e-6)
+    qu = np.clip(np.round((uv - umin) / ur * 65535), 0, 65535).astype(np.uint16)
+    vb = np.zeros((nv, 16), np.uint8)
+    vb[:, 0:6] = q.view(np.uint8).reshape(nv, 6)
+    vb[:, 6:8] = slot.astype(np.int16).view(np.uint8).reshape(nv, 2)
+    vb[:, 8:11] = qn.view(np.uint8).reshape(nv, 3)
+    vb[:, 12:16] = qu.view(np.uint8).reshape(nv, 4)
+    idx32 = nv > 65535
+    ib = idx.astype(np.uint32 if idx32 else np.uint16).tobytes()
+    if len(ib) % 4:
+        ib += b'\0' * (4 - len(ib) % 4)
+    blobs = [vb.tobytes(), ib]
+    off = len(blobs[0]) + len(blobs[1])
+    tex_meta = []
+    for img in img_ids:
+        t = texs[img]
+        d = t['data']; pad = (4 - len(d) % 4) % 4
+        tex_meta.append(dict(off=off, len=len(d), w=t['w'], h=t['h'], alpha=t['alpha']))
+        blobs.append(d + b'\0' * pad); off += len(d) + pad
+    meta = R['meta']
+    header = dict(v=1, id=name, nv=int(nv), ni=int(idx.size), idx32=bool(idx32), vbytes=len(blobs[0]), ioff=len(blobs[0]),
+                  pc=[round(float(x), 5) for x in pc], ph=[round(float(x), 5) for x in ph],
+                  uvmin=[float(x) for x in umin], uvrange=[float(x) for x in ur], groups=groups, tex=tex_meta, meta=meta, credit=cfg['credit'])
+    hj = json.dumps(header, separators=(',', ':')).encode()
+    hj += b' ' * ((4 - len(hj) % 4) % 4)
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, f'{name}.bin'), 'wb') as f:
+        f.write(b'SDM1'); f.write(struct.pack('<I', len(hj))); f.write(hj)
+        for b in blobs:
+            f.write(b)
+    size = os.path.getsize(os.path.join(OUT, f'{name}.bin'))
+    print(f'  -> {name}.bin {size / 1e6:.2f} MB: {nv} verts, {idx.size // 3} tris, {len(groups)} groups, {len(tex_meta)} textures '
+          f'({sum(t["len"] for t in tex_meta) / 1e6:.2f} MB tex)')
+    print('  meta', json.dumps(meta)[:600])
+    return header
+
+
+if __name__ == '__main__':
+    names = sys.argv[1:] or list(CFG)
+    for n in names:
+        R = build(n)
+        write_model(n, R)

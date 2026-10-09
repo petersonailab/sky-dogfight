@@ -74,7 +74,7 @@ const UI = {
     const inv = $('invIn'); inv.checked = P.invert; inv.addEventListener('change', () => { P.invert = inv.checked; this.save(); });
     const mot = $('motionIn'); mot.checked = P.reduceMotion; mot.addEventListener('change', () => { P.reduceMotion = mot.checked; this.save(); });
     this.seg('schemeSeg', P.scheme, v => { P.scheme = v; Input.scheme = Input.touch ? 'touch' : v; this.save(); });
-    this.seg('qualSeg', String(P.quality), v => { P.quality = +v; FX.budget = P.quality === 1 ? 0.5 : 1; this.save(); });
+    this.seg('qualSeg', String(P.quality), v => { P.quality = +v; FX.budget = P.quality === 1 ? 0.5 : 1; this.save(); if (P.quality > 1) HD.wantAll(Game.me ? Game.me.def.id : this.selectedFor(this.era).id); });
     this.seg('teamSeg', '1', v => { const me = Game.me; if (me && Game.rules.mode === 'tdm') { me.team = +v; me.updateAccent(); if (me.alive) Game.spawnLocal(me, performance.now()); this.refreshPause(); } });
     const hostSet = (k, v) => { if (!this.canEditRules()) return; const r = {}; r[k] = v; Game.setRules(r, performance.now()); };
     this.seg('rMode', 'ffa', v => hostSet('mode', v)); this.seg('rEra', 'jet', v => hostSet('era', v));
@@ -130,6 +130,7 @@ const UI = {
     if (!this.hangarPlane) this.hangarPlane = new Plane({ key: 'hangar', owner: 'hangar', local: true, name: 'hangar', color: this.prefs.color, ac: def });
     const p = this.hangarPlane; p.color = this.prefs.color; p.setAircraft(def); p.alive = true; p.hp = def.st.hp; p.ctrl.thr = 0.55;
     p.mR = def.wR ? def.wR.n : 0; p.mI = def.wI ? def.wI.n : 0; p.abFuel = def.perf.abFuel;
+    HD.want(def.id, true);
   },
   renderSpec() {
     const d = this.selectedFor(this.era), el = $('spec'), L = this.list(this.era), st = d.st, jet = d.era === 'jet';
@@ -159,6 +160,8 @@ const UI = {
       for (let i = 0; i < 10; i++) { const it = document.createElement('i'); if (i < n) it.className = 'on'; b.appendChild(it); } bars.append(s, b); }
     const note = document.createElement('p'); note.textContent = d.note + (d.est && !d.note.includes('估計') ? '（數值為估計值）' : '');
     el.append(lab, h, en, dl, bars, note);
+    const cr = HD_CREDIT[d.id];
+    if (cr) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = `3D 模型：${cr[0]}，作者 ${cr[1]}（${cr[2]}，Sketchfab）`; el.append(c); }
   },
   renderHangar(now, dt) {
     const p = this.hangarPlane; if (!p) return;
@@ -167,7 +170,7 @@ const UI = {
     const m = p.model, C = R.cam;
     const fit = Math.max(120, Math.min(stage.width * 0.78, stage.height * 1.45));
     const fov = 30 * DEG, dist = m.radius / Math.tan(fov / 2) * (R.cssH / fit) * 0.92;
-    const pitch = 0.32;
+    const pitch = this.pitchOverride !== undefined ? this.pitchOverride : 0.32;
     C.fov = fov; C.near = 0.5; C.far = 2000;
     C.pos.set(Math.sin(this.yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(this.yaw) * Math.cos(pitch) * dist);
     C.q.lookDir(_a.copy(C.pos).scale(-1).norm(), _b.set(0, 1, 0));
@@ -178,7 +181,7 @@ const UI = {
     if (!this.floor) this.floor = buildFloor();
     M4.fromQP(FLOOR_M, new Q(), _a.set(0, -m.radius * 0.3, 0), m.radius * 1.02);
     R.drawLit(this.floor, FLOOR_M, { cull: false });
-    R.drawPlane(m.mesh, p.modelM, p.look);
+    p.drawBody(true);
     p.drawFlames(now);
   },
   // ---------- go / leave ----------

@@ -10,6 +10,7 @@ const Main = {
       m.prepend(p); return;
     }
     HUD.init($('hud'));
+    HD.init();
     buildSharedMeshes(); FX.init(); FXQ.init();
     WORLD.gen(); WORLD.buildTerrain();
     UI.init(hot);
@@ -17,11 +18,12 @@ const Main = {
     Input.init();
     UI.updateHangarPlane(); UI.yaw = 2.4;
     Net.init();
+    HD.wantAll(UI.selectedFor(UI.era).id);
     this.last = performance.now();
     requestAnimationFrame(t => this.frame(t));
     // keep presence flowing while the tab is in the background (rAF stops there)
     this.hiddenTimer = setInterval(() => { if (document.hidden && Game.active && Game.kind === 'online') { const now = performance.now(); Net.tick(now); } }, 250);
-    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf };
+    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD };
   },
   frame() {
     requestAnimationFrame(t => this.frame(t));

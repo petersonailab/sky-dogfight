@@ -26,7 +26,7 @@ class Plane {
     this.snapT = 0; this.snapPos = new V3(); this.snapVel = new V3(); this.snapQ = new Q(); this.angVel = new V3(); this.corr = new V3(); this.lastSeen = 0; this.hasSnap = false;
     this.modelM = M4.create(); this.bones = new Float32Array(128); this.bones.set(IDENT_BONES);
     this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, flash: 0 };
-    this.trailT = 0; this.smokeT = 0;
+    this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
   setAircraft(def) {
@@ -162,6 +162,7 @@ class Plane {
   // ---------- visuals ----------
   visual(dt, now) {
     const st = this.st, P = this.perf, m = this.model;
+    this.hd = HD.get(this.def.id); this.vm = this.hd ? this.hd.vm : m;
     if (this.def.id === 'f14') { const tgt = clamp(lerp(20, 68, (this.speed - 150) / 170), 20, 68); this.sweep += (tgt - this.sweep) * Math.min(1, dt * 1.4); }
     const pitchIn = this.local ? this.ctrl.pitch : clamp(this.rate.x / P.wb, -1, 1);
     const rollIn = this.local ? this.ctrl.roll : clamp(this.rate.z / P.roll, -1, 1);
@@ -185,7 +186,7 @@ class Plane {
     if (!this.alive) return;
     // wingtip vortices when pulling hard
     if (Math.abs(this.g) > 6 && this.speed > 90 && FX.budget > 0.4) {
-      for (const t of m.tips) {
+      for (const t of this.vm.tips) {
         const p = this.tipWorld(t, _c);
         FX.emit(p.x, p.y, p.z, 0, 0, 0, 0.8, 0.5, 1.4, 0.95, 0.97, 1, 0.32, 0, 0, 0);
       }
@@ -216,11 +217,23 @@ class Plane {
     if (this.wreck && this.wreck.done) return;
     if (!R.visible(this.pos, this.model.radius)) return;
     if (this.alive && this.invuln(now) && Math.floor(now / 110) % 2 === 0) return;
-    R.drawPlane(this.model.mesh, this.modelM, this.look);
+    this.drawBody(false);
+  }
+  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across
+  drawBody(force) {
+    const hd = this.hd;
+    if (hd && (force || this.bigOnScreen(hd.radius, 5))) {
+      R.drawHD(hd, this.modelM, this.look);
+      if (hd.stores) R.drawPlane(hd.stores, this.modelM, this.look);
+    } else R.drawPlane(this.model.mesh, this.modelM, this.look);
+  }
+  bigOnScreen(r, px) {
+    const m = R.cam.vp, p = this.pos, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+    return w <= 1 || r * R.cam.px / w > px;
   }
   drawFlames(now) {
     if (!this.alive || !R.visible(this.pos, this.model.radius)) return;
-    const st = this.st, m = this.model;
+    const st = this.st, m = this.vm || this.model;
     if (st.prop) {
       for (const p of m.props) {
         _a.set(0, p.y, p.z - 0.02).rot(this.q).add(this.pos);

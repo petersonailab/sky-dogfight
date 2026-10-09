@@ -132,6 +132,7 @@ details.controls summary { cursor: pointer; font-family: var(--label); font-weig
 .bar i { height: 7px; background: #3a4249; }
 .bar i.on { background: var(--paper); }
 .spec p { margin: 0; font-size: var(--s1); line-height: 1.65; color: var(--ghost); }
+.spec p.credit { font-size: 11px; line-height: 1.5; opacity: 0.75; border-top: 1px solid var(--line); padding-top: 8px; }
 
 /* ---------- in flight ---------- */
 .topbar { position: fixed; z-index: 5; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 0; pointer-events: none; }
@@ -679,6 +680,47 @@ void main(){
   gl_FragColor = vec4(applyFog(c, length(vW - uCam)), 1.0);
 }`,
   },
+  // hi-detail textured aircraft (quantised vertices: int16 position, int16 missile slot, int8 normal, uint16 uv)
+  hd: {
+    vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute vec2 aUV;
+uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
+varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
+void main(){
+  float sl = aSlot;
+  if ((sl > 0.5 && sl < 20.5 && sl < uFired.x + 0.5) || (sl > 20.5 && sl - 20.0 < uFired.y + 0.5)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vW = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vUV = vec2(0.0); vOY = -99.0; return; }
+  vec3 lp = uPC + aPos * uPH; vOY = lp.y;
+  vec4 w = uModel * vec4(lp, 1.0); vW = w.xyz; vN = (uModel * vec4(aNor, 0.0)).xyz; vUV = uUVO + aUV * uUVS;
+  gl_Position = uVP * w;
+}`,
+    fs: GLSL_FRAG_HEAD + GLSL_ENV + `
+varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
+uniform sampler2D uTex; uniform float uHasTex; uniform vec4 uColor; uniform float uMode; uniform float uCut; uniform float uFlash; uniform vec2 uMat;
+uniform float uAccY; uniform vec3 uAccent;
+void main(){
+  vec4 base = uColor;
+  if (uHasTex > 0.5) base *= texture2D(uTex, vUV);
+  if (uMode > 0.5 && uMode < 1.5 && base.a < uCut) discard;
+  if (uMode < 1.5) { float k = smoothstep(uAccY, uAccY + 0.03, vOY); base.rgb = mix(base.rgb, uAccent * (0.7 + 0.45 * dot(base.rgb, vec3(0.3, 0.5, 0.2))), k * 0.92); }
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  vec3 V = normalize(uCam - vW);
+  float gloss = uMat.y, metal = uMat.x;
+  float ndl = max(dot(N, uSunDir), 0.0);
+  vec3 amb = mix(uGndAmb, uSkyAmb, N.y * 0.5 + 0.5);
+  vec3 H = normalize(uSunDir + V);
+  float sp = pow(max(dot(N, H), 0.0), mix(8.0, 140.0, gloss)) * gloss * 1.2;
+  vec3 env = skyCol(reflect(-V, N)); vec3 envM = mix(vec3(dot(env, vec3(0.3, 0.5, 0.2))), env, 0.3);
+  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+  vec3 diff = base.rgb * (uSunCol * ndl * 0.95 + amb);
+  vec3 c = mix(diff, base.rgb * envM * 1.1 + diff * 0.35, metal);
+  c += env * (0.03 + 0.45 * fres) * gloss;
+  c += uSunCol * sp * mix(0.35, 1.0, metal);
+  float a = 1.0;
+  if (uMode > 1.5) { a = clamp(base.a + fres * 0.5, 0.18, 0.96); c = base.rgb * 0.35 + env * (0.14 + 0.62 * fres) + uSunCol * sp * 1.6; }
+  c = mix(c, vec3(1.0, 0.78, 0.5), uFlash);
+  c = applyFog(c, length(vW - uCam));
+  gl_FragColor = vec4(c * a, a);
+}`,
+  },
   sky: {
     vs: `attribute vec2 aPos; uniform mat4 uIVP; uniform vec3 uCam; varying vec3 vDir;
 void main(){ vec4 p = uIVP * vec4(aPos, 1.0, 1.0); vDir = p.xyz / p.w - uCam; gl_Position = vec4(aPos, 0.99999, 1.0); }`,
@@ -923,6 +965,40 @@ const R = {
     gl.uniform3fv(u.uAccent, look.accent || pt.top);
     gl.uniform1f(u.uFlash, look.flash || 0);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
+  },
+  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes)
+  drawHD(m, model, look) {
+    const gl = this.gl, p = this.use(this.P.hd), u = p.u, a = p.a;
+    gl.uniformMatrix4fv(u.uModel, false, model);
+    gl.uniform3fv(u.uPC, m.pc); gl.uniform3fv(u.uPH, m.ph);
+    gl.uniform2fv(u.uUVO, m.uvo); gl.uniform2fv(u.uUVS, m.uvs);
+    gl.uniform2f(u.uFired, look.firedR || 0, look.firedI || 0);
+    gl.uniform1f(u.uFlash, look.flash || 0);
+    gl.uniform1i(u.uTex, 0);
+    gl.uniform1f(u.uAccY, m.accY); gl.uniform3fv(u.uAccent, look.accent || ONE3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.vb);
+    const used = [];
+    const at = (name, n, type, norm, off) => { const l = a[name]; if (l === undefined || l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, type, norm, 16, off); used.push(l); };
+    at('aPos', 3, gl.SHORT, true, 0); at('aSlot', 1, gl.SHORT, false, 6); at('aNor', 3, gl.BYTE, true, 8); at('aUV', 2, gl.UNSIGNED_SHORT, true, 12);
+    for (const l of this.enabled) if (used.indexOf(l) < 0) gl.disableVertexAttribArray(l);
+    this.enabled = used;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);
+    gl.activeTexture(gl.TEXTURE0);
+    const it = m.idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, isz = m.idx32 ? 4 : 2;
+    let blend = false;
+    gl.disable(gl.BLEND); gl.depthMask(true);
+    for (const g of m.groups) {
+      if (g.mode === 2 && !blend) { blend = true; gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+      if (g.double) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
+      const t = g.tex >= 0 ? m.tex[g.tex] : null;
+      gl.uniform1f(u.uHasTex, t ? 1 : 0);
+      if (t) gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.uniform4fv(u.uColor, g.color); gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
+      gl.uniform2fv(u.uMat, g.mat);
+      gl.drawElements(gl.TRIANGLES, g.count, it, g.start * isz);
+    }
+    if (blend) { gl.disable(gl.BLEND); gl.depthMask(true); }
+    gl.enable(gl.CULL_FACE);
   },
   drawWater() {
     const gl = this.gl, p = this.use(this.P.water);
@@ -1553,6 +1629,28 @@ const AC_DEFS = [
   },
 ];
 
+// missile body for the stores on the wing: length, radius by kind; z is the nose
+const MSL_DIM = { big: [3.9, 0.19], rad: [3.65, 0.09], ir: [2.9, 0.065] };
+function missileShape(b, x, y, z, kind) {
+  const [L, r] = MSL_DIM[kind];
+  b.mat = MAT.WHITE; b.cyl([x, y, z + r * 2.4], [x, y, z + L], r, r * 0.95, { seg: 8, cap1: true });
+  b.mat = MAT.GRAY; b.cyl([x, y, z], [x, y, z + r * 2.4], 0.004, r, { seg: 8 });
+  const fs = kind === 'big' ? 0.3 : 0.2, fc = kind === 'big' ? 0.5 : 0.32;
+  b.box([x, y, z + L - fc * 0.6], fs * 2 + r * 2, 0.015, fc); b.box([x, y, z + L - fc * 0.6], 0.015, fs * 2 + r * 2, fc);
+  if (kind === 'ir') { b.box([x, y, z + 0.45], 0.24, 0.012, 0.14); b.box([x, y, z + 0.45], 0.012, 0.24, 0.14); }
+}
+// missiles hung under a hi-detail model (same shapes and slot numbering as the procedural builder)
+function buildStores(list) {
+  const b = new MB(); let nR = 0, nI = 0; const pylR = [], pylI = [];
+  for (const s of list) {
+    const isIr = s.k === 'ir', slot = isIr ? 20 + (++nI) : ++nR, [L, r] = MSL_DIM[s.k] || MSL_DIM.rad;
+    if (s.ph) { b.slot = 0; b.mat = MAT.GRAY; b.box([s.x, s.y + r + s.ph / 2, s.z + L * 0.48], 0.07, s.ph + 0.04, L * 0.5); }
+    b.slot = slot; missileShape(b, s.x, s.y, s.z, s.k); b.slot = 0;
+    (isIr ? pylI : pylR).push([s.x, s.y, s.z + L * 0.5]);
+  }
+  return { data: nR + nI ? b.data() : null, pylR, pylI };
+}
+
 // ---- builder context exposed to the definitions ----
 function buildAircraftModel(def) {
   const b = new MB();
@@ -1580,14 +1678,9 @@ function buildAircraftModel(def) {
     // the shader hides the first N of each group once they have been fired.
     missile(x, y, z, kind, pylon) {
       const isIr = kind === 'ir', slot = isIr ? 20 + (++meta.nI) : ++meta.nR;
-      const L = kind === 'big' ? 3.9 : kind === 'rad' ? 3.65 : 2.9, r = kind === 'big' ? 0.19 : kind === 'rad' ? 0.09 : 0.065;
+      const [L, r] = MSL_DIM[kind];
       if (pylon) { b.mat = MAT.PAINT; b.slot = 0; b.box([x, y + r + 0.14, z + L * 0.48], 0.07, 0.3, L * 0.5); }
-      b.slot = slot;
-      b.mat = MAT.WHITE; b.cyl([x, y, z + r * 2.4], [x, y, z + L], r, r * 0.95, { seg: 8, cap1: true });
-      b.mat = MAT.GRAY; b.cyl([x, y, z], [x, y, z + r * 2.4], 0.004, r, { seg: 8 });
-      const fs = kind === 'big' ? 0.3 : 0.2, fc = kind === 'big' ? 0.5 : 0.32;
-      b.box([x, y, z + L - fc * 0.6], fs * 2 + r * 2, 0.015, fc); b.box([x, y, z + L - fc * 0.6], 0.015, fs * 2 + r * 2, fc);
-      if (kind === 'ir') { b.box([x, y, z + 0.45], 0.24, 0.012, 0.14); b.box([x, y, z + 0.45], 0.012, 0.24, 0.14); }
+      b.slot = slot; missileShape(b, x, y, z, kind);
       b.slot = 0; b.mat = MAT.PAINT;
       (isIr ? meta.pylI : meta.pylR).push([x, y, z + L * 0.5]);
     },
@@ -1706,6 +1799,109 @@ for (const d of AC_DEFS) {
     if (m.type === 'ir') d.wI = { m, n }; else d.wR = { m, n };
   }
   d.loadText = (d.loadout || []).map(([id, n]) => `${n}× ${MISSILES[id].name}`).join('、') || '—';
+}
+
+// ---- 22_hd.js ----
+// ===================== hi-detail aircraft models =====================
+// Textured models converted from third-party GLB files (credits in each file's header and the README).
+// They are optional: they stream in after the game starts, and until one has arrived (or if the files are
+// missing, e.g. inside the Claude artifact) the procedural model is drawn instead.
+const HD_IDS = ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21'];
+const HD_CREDIT = {
+  f16: ['F16-C Falcon', 'Carlos.Maciel', 'CC BY 4.0'],
+  f22: ['F22 RAPTOR', 'sxnneh', 'Sketchfab Standard'],
+  f14: ['F14', 'manilov.ap', 'CC BY 4.0'],
+  su27: ['Sukhoi Su-27M (USSR)', '42manako', 'CC BY-NC 4.0'],
+  typhoon: ['Eurofighter Typhoon - Fighter Jet - Free', 'bohmerang', 'CC BY-NC-SA 4.0'],
+  m2000: ['Mirage 2000-5F', 'Jeyhun1985', 'CC BY 4.0'],
+  mig21: ['1972 MiG-21bis', 'OUTPISTON', 'CC BY-NC-SA 4.0'],
+};
+const HD = {
+  models: {}, state: {}, queue: [], busy: 0, base: 'models/', ready: false, ext32: null, aniso: null, maxAniso: 1, off: false,
+  init() {
+    const gl = R.gl;
+    this.ext32 = gl.getExtension('OES_element_index_uint');
+    this.aniso = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic') || gl.getExtension('MOZ_EXT_texture_filter_anisotropic');
+    if (this.aniso) this.maxAniso = Math.min(8, gl.getParameter(this.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1);
+    try { if (new URLSearchParams(location.search).has('lowpoly')) this.off = true; } catch (e) { /* ignore */ }
+    if (typeof window.__HD_BASE__ === 'string') this.base = window.__HD_BASE__;
+    this.ready = true;
+  },
+  // the '流暢' (smooth) quality setting keeps the light procedural models
+  lite() { return this.off || (UI.prefs && UI.prefs.quality === 1); },
+  get(id) { return this.lite() ? null : (this.models[id] || null); },
+  // ask for a model; `first` puts it at the front of the queue
+  want(id, first) {
+    if (this.lite() || !this.ready || HD_IDS.indexOf(id) < 0 || this.state[id]) {
+      if (first && this.state[id] === 'queued') { this.queue.splice(this.queue.indexOf(id), 1); this.queue.unshift(id); }
+      return;
+    }
+    this.state[id] = 'queued';
+    if (first) this.queue.unshift(id); else this.queue.push(id);
+    this.pump();
+  },
+  wantAll(firstId) { if (firstId) this.want(firstId, true); for (const id of HD_IDS) this.want(id); },
+  pump() {
+    while (this.busy < 2 && this.queue.length) {
+      const id = this.queue.shift();
+      this.state[id] = 'loading'; this.busy++;
+      this.load(id).then(() => { this.state[id] = 'ready'; }, e => { this.state[id] = 'failed'; if (!this.warned) { this.warned = true; console.info('hi-detail models unavailable, using procedural ones', e && e.message); } })
+        .finally(() => { this.busy--; this.pump(); });
+    }
+  },
+  async load(id) {
+    if (location.protocol === 'file:') throw new Error('file://');
+    const res = await fetch(this.base + id + '.bin');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buf = await res.arrayBuffer();
+    const dv = new DataView(buf);
+    if (dv.getUint32(0, true) !== 0x314d4453) throw new Error('bad model file'); // 'SDM1'
+    const hl = dv.getUint32(4, true);
+    const H = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, hl)));
+    const base = 8 + hl;
+    if (H.idx32 && !this.ext32) throw new Error('32-bit indices unsupported');
+    // textures first (decoding is async), then the GPU buffers in one go
+    const imgs = await Promise.all(H.tex.map(t => decodeImage(new Blob([new Uint8Array(buf, base + t.off, t.len)], { type: 'image/webp' }))));
+    const gl = R.gl;
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(buf, base, H.vbytes), gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, H.idx32 ? new Uint32Array(buf, base + H.ioff, H.ni) : new Uint16Array(buf, base + H.ioff, H.ni), gl.STATIC_DRAW);
+    const tex = imgs.map(im => {
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      if (this.aniso) gl.texParameterf(gl.TEXTURE_2D, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, this.maxAniso);
+      if (im.close) im.close();
+      return t;
+    });
+    const M = H.meta;
+    const st = buildStores(M.stores || []);
+    const mats = { f22: [0.12, 0.3] };
+    const m = {
+      id, vb, ib, tex, idx32: !!H.idx32, credit: H.credit, tris: H.ni / 3,
+      pc: new Float32Array(H.pc), ph: new Float32Array(H.ph), uvo: new Float32Array(H.uvmin), uvs: new Float32Array(H.uvrange),
+      groups: H.groups.map(g => ({ start: g.start, count: g.count, tex: g.tex, color: new Float32Array(g.color), mode: g.mode, double: !!g.double, cutoff: g.cutoff,
+        mat: new Float32Array(g.mode === 2 ? [0, 0.95] : (mats[id] || [0.08, 0.34])) })),
+      stores: st.data ? R.mesh(st.data, 'plane') : null,
+      radius: M.radius, accY: M.accY !== undefined ? M.accY : 99,
+      vm: {
+        flames: M.flames.map(f => ({ p: f.p, r: f.r })),
+        tips: M.tips.map(p => ({ p, bone: 0 })),
+        pylR: M.internal ? M.internal.rad : (M.launch && M.launch.rad.length ? M.launch.rad : st.pylR),
+        pylI: M.internal ? M.internal.ir : (M.launch && M.launch.ir.length ? M.launch.ir : st.pylI),
+      },
+    };
+    this.models[id] = m;
+  },
+};
+
+function decodeImage(blob) {
+  if (typeof createImageBitmap === 'function') return createImageBitmap(blob);
+  return new Promise((res, rej) => { const url = URL.createObjectURL(blob); const im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = rej; im.src = url; });
 }
 
 // ---- 30_world.js ----
@@ -2063,7 +2259,7 @@ class Plane {
     this.snapT = 0; this.snapPos = new V3(); this.snapVel = new V3(); this.snapQ = new Q(); this.angVel = new V3(); this.corr = new V3(); this.lastSeen = 0; this.hasSnap = false;
     this.modelM = M4.create(); this.bones = new Float32Array(128); this.bones.set(IDENT_BONES);
     this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, flash: 0 };
-    this.trailT = 0; this.smokeT = 0;
+    this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
   setAircraft(def) {
@@ -2199,6 +2395,7 @@ class Plane {
   // ---------- visuals ----------
   visual(dt, now) {
     const st = this.st, P = this.perf, m = this.model;
+    this.hd = HD.get(this.def.id); this.vm = this.hd ? this.hd.vm : m;
     if (this.def.id === 'f14') { const tgt = clamp(lerp(20, 68, (this.speed - 150) / 170), 20, 68); this.sweep += (tgt - this.sweep) * Math.min(1, dt * 1.4); }
     const pitchIn = this.local ? this.ctrl.pitch : clamp(this.rate.x / P.wb, -1, 1);
     const rollIn = this.local ? this.ctrl.roll : clamp(this.rate.z / P.roll, -1, 1);
@@ -2222,7 +2419,7 @@ class Plane {
     if (!this.alive) return;
     // wingtip vortices when pulling hard
     if (Math.abs(this.g) > 6 && this.speed > 90 && FX.budget > 0.4) {
-      for (const t of m.tips) {
+      for (const t of this.vm.tips) {
         const p = this.tipWorld(t, _c);
         FX.emit(p.x, p.y, p.z, 0, 0, 0, 0.8, 0.5, 1.4, 0.95, 0.97, 1, 0.32, 0, 0, 0);
       }
@@ -2253,11 +2450,23 @@ class Plane {
     if (this.wreck && this.wreck.done) return;
     if (!R.visible(this.pos, this.model.radius)) return;
     if (this.alive && this.invuln(now) && Math.floor(now / 110) % 2 === 0) return;
-    R.drawPlane(this.model.mesh, this.modelM, this.look);
+    this.drawBody(false);
+  }
+  // hi-detail textured model when it has loaded and the aircraft is more than a few pixels across
+  drawBody(force) {
+    const hd = this.hd;
+    if (hd && (force || this.bigOnScreen(hd.radius, 5))) {
+      R.drawHD(hd, this.modelM, this.look);
+      if (hd.stores) R.drawPlane(hd.stores, this.modelM, this.look);
+    } else R.drawPlane(this.model.mesh, this.modelM, this.look);
+  }
+  bigOnScreen(r, px) {
+    const m = R.cam.vp, p = this.pos, w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+    return w <= 1 || r * R.cam.px / w > px;
   }
   drawFlames(now) {
     if (!this.alive || !R.visible(this.pos, this.model.radius)) return;
-    const st = this.st, m = this.model;
+    const st = this.st, m = this.vm || this.model;
     if (st.prop) {
       for (const p of m.props) {
         _a.set(0, p.y, p.z - 0.02).rot(this.q).add(this.pos);
@@ -2439,7 +2648,8 @@ const W = {
     const firedBefore = Math.max(0, w.n - left);
     if (type === 'ir') { pl.mI--; pl.reloadI = 0; } else { pl.mR--; pl.reloadR = 0; }
     pl.mslCd = 0.5;
-    const pyl = (type === 'ir' ? pl.model.pylI : pl.model.pylR)[firedBefore] || [0, -1.2, 0];
+    const vm = pl.vm || pl.model;
+    const pyl = (type === 'ir' ? vm.pylI : vm.pylR)[firedBefore] || [0, -1.2, 0];
     const pos = _a.set(pyl[0], pyl[1], pyl[2]).rot(pl.q).add(pl.pos).clone();
     const down = pl.up(_b).scale(-8);
     const tgt = pl.lock.locked && pl.lock.w === M ? pl.lock.t : null;
@@ -4287,7 +4497,7 @@ const UI = {
     const inv = $('invIn'); inv.checked = P.invert; inv.addEventListener('change', () => { P.invert = inv.checked; this.save(); });
     const mot = $('motionIn'); mot.checked = P.reduceMotion; mot.addEventListener('change', () => { P.reduceMotion = mot.checked; this.save(); });
     this.seg('schemeSeg', P.scheme, v => { P.scheme = v; Input.scheme = Input.touch ? 'touch' : v; this.save(); });
-    this.seg('qualSeg', String(P.quality), v => { P.quality = +v; FX.budget = P.quality === 1 ? 0.5 : 1; this.save(); });
+    this.seg('qualSeg', String(P.quality), v => { P.quality = +v; FX.budget = P.quality === 1 ? 0.5 : 1; this.save(); if (P.quality > 1) HD.wantAll(Game.me ? Game.me.def.id : this.selectedFor(this.era).id); });
     this.seg('teamSeg', '1', v => { const me = Game.me; if (me && Game.rules.mode === 'tdm') { me.team = +v; me.updateAccent(); if (me.alive) Game.spawnLocal(me, performance.now()); this.refreshPause(); } });
     const hostSet = (k, v) => { if (!this.canEditRules()) return; const r = {}; r[k] = v; Game.setRules(r, performance.now()); };
     this.seg('rMode', 'ffa', v => hostSet('mode', v)); this.seg('rEra', 'jet', v => hostSet('era', v));
@@ -4343,6 +4553,7 @@ const UI = {
     if (!this.hangarPlane) this.hangarPlane = new Plane({ key: 'hangar', owner: 'hangar', local: true, name: 'hangar', color: this.prefs.color, ac: def });
     const p = this.hangarPlane; p.color = this.prefs.color; p.setAircraft(def); p.alive = true; p.hp = def.st.hp; p.ctrl.thr = 0.55;
     p.mR = def.wR ? def.wR.n : 0; p.mI = def.wI ? def.wI.n : 0; p.abFuel = def.perf.abFuel;
+    HD.want(def.id, true);
   },
   renderSpec() {
     const d = this.selectedFor(this.era), el = $('spec'), L = this.list(this.era), st = d.st, jet = d.era === 'jet';
@@ -4372,6 +4583,8 @@ const UI = {
       for (let i = 0; i < 10; i++) { const it = document.createElement('i'); if (i < n) it.className = 'on'; b.appendChild(it); } bars.append(s, b); }
     const note = document.createElement('p'); note.textContent = d.note + (d.est && !d.note.includes('估計') ? '（數值為估計值）' : '');
     el.append(lab, h, en, dl, bars, note);
+    const cr = HD_CREDIT[d.id];
+    if (cr) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = `3D 模型：${cr[0]}，作者 ${cr[1]}（${cr[2]}，Sketchfab）`; el.append(c); }
   },
   renderHangar(now, dt) {
     const p = this.hangarPlane; if (!p) return;
@@ -4380,7 +4593,7 @@ const UI = {
     const m = p.model, C = R.cam;
     const fit = Math.max(120, Math.min(stage.width * 0.78, stage.height * 1.45));
     const fov = 30 * DEG, dist = m.radius / Math.tan(fov / 2) * (R.cssH / fit) * 0.92;
-    const pitch = 0.32;
+    const pitch = this.pitchOverride !== undefined ? this.pitchOverride : 0.32;
     C.fov = fov; C.near = 0.5; C.far = 2000;
     C.pos.set(Math.sin(this.yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(this.yaw) * Math.cos(pitch) * dist);
     C.q.lookDir(_a.copy(C.pos).scale(-1).norm(), _b.set(0, 1, 0));
@@ -4391,7 +4604,7 @@ const UI = {
     if (!this.floor) this.floor = buildFloor();
     M4.fromQP(FLOOR_M, new Q(), _a.set(0, -m.radius * 0.3, 0), m.radius * 1.02);
     R.drawLit(this.floor, FLOOR_M, { cull: false });
-    R.drawPlane(m.mesh, p.modelM, p.look);
+    p.drawBody(true);
     p.drawFlames(now);
   },
   // ---------- go / leave ----------
@@ -4610,6 +4823,7 @@ const Main = {
       m.prepend(p); return;
     }
     HUD.init($('hud'));
+    HD.init();
     buildSharedMeshes(); FX.init(); FXQ.init();
     WORLD.gen(); WORLD.buildTerrain();
     UI.init(hot);
@@ -4617,11 +4831,12 @@ const Main = {
     Input.init();
     UI.updateHangarPlane(); UI.yaw = 2.4;
     Net.init();
+    HD.wantAll(UI.selectedFor(UI.era).id);
     this.last = performance.now();
     requestAnimationFrame(t => this.frame(t));
     // keep presence flowing while the tab is in the background (rAF stops there)
     this.hiddenTimer = setInterval(() => { if (document.hidden && Game.active && Game.kind === 'online') { const now = performance.now(); Net.tick(now); } }, 250);
-    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf };
+    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD };
   },
   frame() {
     requestAnimationFrame(t => this.frame(t));

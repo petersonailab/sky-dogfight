@@ -112,6 +112,47 @@ void main(){
   gl_FragColor = vec4(applyFog(c, length(vW - uCam)), 1.0);
 }`,
   },
+  // hi-detail textured aircraft (quantised vertices: int16 position, int16 missile slot, int8 normal, uint16 uv)
+  hd: {
+    vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute vec2 aUV;
+uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
+varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
+void main(){
+  float sl = aSlot;
+  if ((sl > 0.5 && sl < 20.5 && sl < uFired.x + 0.5) || (sl > 20.5 && sl - 20.0 < uFired.y + 0.5)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vW = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vUV = vec2(0.0); vOY = -99.0; return; }
+  vec3 lp = uPC + aPos * uPH; vOY = lp.y;
+  vec4 w = uModel * vec4(lp, 1.0); vW = w.xyz; vN = (uModel * vec4(aNor, 0.0)).xyz; vUV = uUVO + aUV * uUVS;
+  gl_Position = uVP * w;
+}`,
+    fs: GLSL_FRAG_HEAD + GLSL_ENV + `
+varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
+uniform sampler2D uTex; uniform float uHasTex; uniform vec4 uColor; uniform float uMode; uniform float uCut; uniform float uFlash; uniform vec2 uMat;
+uniform float uAccY; uniform vec3 uAccent;
+void main(){
+  vec4 base = uColor;
+  if (uHasTex > 0.5) base *= texture2D(uTex, vUV);
+  if (uMode > 0.5 && uMode < 1.5 && base.a < uCut) discard;
+  if (uMode < 1.5) { float k = smoothstep(uAccY, uAccY + 0.03, vOY); base.rgb = mix(base.rgb, uAccent * (0.7 + 0.45 * dot(base.rgb, vec3(0.3, 0.5, 0.2))), k * 0.92); }
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  vec3 V = normalize(uCam - vW);
+  float gloss = uMat.y, metal = uMat.x;
+  float ndl = max(dot(N, uSunDir), 0.0);
+  vec3 amb = mix(uGndAmb, uSkyAmb, N.y * 0.5 + 0.5);
+  vec3 H = normalize(uSunDir + V);
+  float sp = pow(max(dot(N, H), 0.0), mix(8.0, 140.0, gloss)) * gloss * 1.2;
+  vec3 env = skyCol(reflect(-V, N)); vec3 envM = mix(vec3(dot(env, vec3(0.3, 0.5, 0.2))), env, 0.3);
+  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+  vec3 diff = base.rgb * (uSunCol * ndl * 0.95 + amb);
+  vec3 c = mix(diff, base.rgb * envM * 1.1 + diff * 0.35, metal);
+  c += env * (0.03 + 0.45 * fres) * gloss;
+  c += uSunCol * sp * mix(0.35, 1.0, metal);
+  float a = 1.0;
+  if (uMode > 1.5) { a = clamp(base.a + fres * 0.5, 0.18, 0.96); c = base.rgb * 0.35 + env * (0.14 + 0.62 * fres) + uSunCol * sp * 1.6; }
+  c = mix(c, vec3(1.0, 0.78, 0.5), uFlash);
+  c = applyFog(c, length(vW - uCam));
+  gl_FragColor = vec4(c * a, a);
+}`,
+  },
   sky: {
     vs: `attribute vec2 aPos; uniform mat4 uIVP; uniform vec3 uCam; varying vec3 vDir;
 void main(){ vec4 p = uIVP * vec4(aPos, 1.0, 1.0); vDir = p.xyz / p.w - uCam; gl_Position = vec4(aPos, 0.99999, 1.0); }`,
@@ -356,6 +397,40 @@ const R = {
     gl.uniform3fv(u.uAccent, look.accent || pt.top);
     gl.uniform1f(u.uFlash, look.flash || 0);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
+  },
+  // textured hi-detail model: opaque groups first, glass last (premultiplied blending, no depth writes)
+  drawHD(m, model, look) {
+    const gl = this.gl, p = this.use(this.P.hd), u = p.u, a = p.a;
+    gl.uniformMatrix4fv(u.uModel, false, model);
+    gl.uniform3fv(u.uPC, m.pc); gl.uniform3fv(u.uPH, m.ph);
+    gl.uniform2fv(u.uUVO, m.uvo); gl.uniform2fv(u.uUVS, m.uvs);
+    gl.uniform2f(u.uFired, look.firedR || 0, look.firedI || 0);
+    gl.uniform1f(u.uFlash, look.flash || 0);
+    gl.uniform1i(u.uTex, 0);
+    gl.uniform1f(u.uAccY, m.accY); gl.uniform3fv(u.uAccent, look.accent || ONE3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.vb);
+    const used = [];
+    const at = (name, n, type, norm, off) => { const l = a[name]; if (l === undefined || l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, type, norm, 16, off); used.push(l); };
+    at('aPos', 3, gl.SHORT, true, 0); at('aSlot', 1, gl.SHORT, false, 6); at('aNor', 3, gl.BYTE, true, 8); at('aUV', 2, gl.UNSIGNED_SHORT, true, 12);
+    for (const l of this.enabled) if (used.indexOf(l) < 0) gl.disableVertexAttribArray(l);
+    this.enabled = used;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);
+    gl.activeTexture(gl.TEXTURE0);
+    const it = m.idx32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, isz = m.idx32 ? 4 : 2;
+    let blend = false;
+    gl.disable(gl.BLEND); gl.depthMask(true);
+    for (const g of m.groups) {
+      if (g.mode === 2 && !blend) { blend = true; gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
+      if (g.double) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
+      const t = g.tex >= 0 ? m.tex[g.tex] : null;
+      gl.uniform1f(u.uHasTex, t ? 1 : 0);
+      if (t) gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.uniform4fv(u.uColor, g.color); gl.uniform1f(u.uMode, g.mode); gl.uniform1f(u.uCut, g.cutoff || 0.5);
+      gl.uniform2fv(u.uMat, g.mat);
+      gl.drawElements(gl.TRIANGLES, g.count, it, g.start * isz);
+    }
+    if (blend) { gl.disable(gl.BLEND); gl.depthMask(true); }
+    gl.enable(gl.CULL_FACE);
   },
   drawWater() {
     const gl = this.gl, p = this.use(this.P.water);

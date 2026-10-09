@@ -64,8 +64,27 @@
 - 熱焰彈有機會騙走來襲飛彈，紅外線彈比雷達彈容易被騙。
 - 後燃器燃料用完會鎖住，回充到 25% 才能再開。
 
+## 3D 模型來源
+
+七架噴射機使用 Sketchfab 上的精細模型（已減面、移除放下的起落架、轉成遊戲格式放在 `models/`）。經國號和四架螺旋槳機仍是程式產生的模型。
+
+| 戰機 | 模型 | 作者 | 授權 |
+|---|---|---|---|
+| F-16 | [F16-C Falcon](https://sketchfab.com/3d-models/f16-c-falcon-4bc2ff75dc584af2afd0aa6bd8b79015) | Carlos.Maciel | CC BY 4.0 |
+| F-22 | [F22 RAPTOR](https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b) | sxnneh | Sketchfab Standard |
+| F-14 | [F14](https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af) | manilov.ap | CC BY 4.0 |
+| Su-27 | [Sukhoi Su-27M (USSR)](https://sketchfab.com/3d-models/sukhoi-su-27m-ussr-af788ebfb576454ca5eaac2313a30e5b) | 42manako | CC BY-NC 4.0 |
+| 颱風 | [Eurofighter Typhoon - Fighter Jet - Free](https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579) | bohmerang | CC BY-NC-SA 4.0 |
+| 幻象 2000 | [Mirage 2000-5F](https://sketchfab.com/3d-models/mirage-2000-5f-3894c147f6474d5eb6308b8d2724a914) | Jeyhun1985 | CC BY 4.0 |
+| MiG-21 | [1972 MiG-21bis](https://sketchfab.com/3d-models/1972-mig-21bis-0fdbda95ec1a4121863fff5065c2fc51) | OUTPISTON | CC BY-NC-SA 4.0 |
+
+- 修改內容：轉正方向與比例、移除起落架與部分座艙內裝、MiG-21 拿掉翼下副油箱、減面、貼圖縮小並轉成 WebP、機尾頂端改成玩家顏色。
+- 標示 NC 的模型不可用於商業用途；標示 SA 的模型，改作後的檔案（`models/typhoon.bin`、`models/mig21.bin`）同樣以 CC BY-NC-SA 4.0 釋出。
+- F-22 模型是 Sketchfab Standard 授權，只能作為作品的一部分使用，不可把模型檔單獨拿去散布。
+- 電腦比較慢的話，網址加 `?lowpoly` 改用簡易模型。
+
 ## 技術說明
 
-- 整個遊戲是單一 `index.html`：自製 WebGL 繪圖、程式產生的低多邊形機體、合成音效，不需要安裝任何東西。原始碼在 `src/`，執行 `python3 build.py` 會重新產生 `index.html`。
+- 遊戲本體是單一 `index.html`：自製 WebGL 繪圖、合成音效，不需要安裝任何東西；精細模型放在 `models/`，載入前或載入失敗時會先用程式產生的簡易模型。原始碼在 `src/`，執行 `python3 build.py` 會重新產生 `index.html`；`tools/hd/` 是把 GLB 轉成 `models/*.bin` 的轉檔程式。
 - 連線：公開的 MQTT over WSS 伺服器（[EMQX](https://www.emqx.com/mqtt/public-mqtt5-broker)、[HiveMQ](https://www.mqtt-dashboard.com/)）負責配對和轉送，WebRTC DataChannel 負責直連。公開伺服器上的訊息別人也看得到，呼號不要放個人資料。
 - 進階：網址加 `?nop2p` 只用伺服器轉送；加 `?mqtt=wss://你的伺服器/mqtt` 改用自己的 MQTT 伺服器（可用逗號放多個）。

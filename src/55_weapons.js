@@ -132,7 +132,8 @@ const W = {
     const firedBefore = Math.max(0, w.n - left);
     if (type === 'ir') { pl.mI--; pl.reloadI = 0; } else { pl.mR--; pl.reloadR = 0; }
     pl.mslCd = 0.5;
-    const pyl = (type === 'ir' ? pl.model.pylI : pl.model.pylR)[firedBefore] || [0, -1.2, 0];
+    const vm = pl.vm || pl.model;
+    const pyl = (type === 'ir' ? vm.pylI : vm.pylR)[firedBefore] || [0, -1.2, 0];
     const pos = _a.set(pyl[0], pyl[1], pyl[2]).rot(pl.q).add(pl.pos).clone();
     const down = pl.up(_b).scale(-8);
     const tgt = pl.lock.locked && pl.lock.w === M ? pl.lock.t : null;

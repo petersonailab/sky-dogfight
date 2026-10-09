@@ -43,11 +43,11 @@ def build_game():
         f.write(out)
     # test document: skeleton + mock platform + page
     mock = read('test/mock_claude.js')
-    test = SKELETON_HEAD + '<script>\n' + mock + '\n</script>' + out + '</body></html>'
+    test = SKELETON_HEAD + '<script>window.__HD_BASE__ = "../models/";\n' + mock + '\n</script>' + out + '</body></html>'
     with open(os.path.join(ROOT, 'test', 'game.html'), 'w', encoding='utf-8') as f:
         f.write(test)
     # web test document: no platform mock, so the page takes the internet (MQTT + WebRTC) path
-    web = SKELETON_HEAD + '<script>window.__DF_TEST__ = true;</script>' + out + '</body></html>'
+    web = SKELETON_HEAD + '<script>window.__DF_TEST__ = true; window.__HD_BASE__ = "../models/";</script>' + out + '</body></html>'
     with open(os.path.join(ROOT, 'test', 'web.html'), 'w', encoding='utf-8') as f:
         f.write(web)
     # bare js for syntax checking
