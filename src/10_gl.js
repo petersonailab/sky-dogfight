@@ -112,16 +112,19 @@ void main(){
   gl_FragColor = vec4(applyFog(c, length(vW - uCam)), 1.0);
 }`,
   },
-  // hi-detail textured aircraft (quantised vertices: int16 position, int16 missile slot, int8 normal, uint16 uv)
+  // hi-detail textured aircraft (quantised vertices: int16 position, int16 missile slot, int8 normal, uint8 bone, uint16 uv)
+  // bone 0 = rigid airframe; 1..7 = control surfaces / swing wings, moved by uBones like the procedural models
   hd: {
-    vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute vec2 aUV;
-uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
+    vs: `attribute vec3 aPos; attribute float aSlot; attribute vec3 aNor; attribute float aBone; attribute vec2 aUV;
+uniform mat4 uModel; uniform mat4 uVP; uniform mat4 uBones[8]; uniform vec3 uPC; uniform vec3 uPH; uniform vec2 uUVO; uniform vec2 uUVS; uniform vec2 uFired;
 varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying float vOY;
 void main(){
   float sl = aSlot;
   if ((sl > 0.5 && sl < 20.5 && sl < uFired.x + 0.5) || (sl > 20.5 && sl - 20.0 < uFired.y + 0.5)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vW = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vUV = vec2(0.0); vOY = -99.0; return; }
   vec3 lp = uPC + aPos * uPH; vOY = lp.y;
-  vec4 w = uModel * vec4(lp, 1.0); vW = w.xyz; vN = (uModel * vec4(aNor, 0.0)).xyz; vUV = uUVO + aUV * uUVS;
+  vec4 p = vec4(lp, 1.0); vec4 n = vec4(aNor, 0.0);
+  if (aBone > 0.5) { mat4 B = uBones[int(aBone + 0.5)]; p = B * p; n = B * n; }
+  vec4 w = uModel * p; vW = w.xyz; vN = (uModel * n).xyz; vUV = uUVO + aUV * uUVS;
   gl_Position = uVP * w;
 }`,
     fs: GLSL_FRAG_HEAD + GLSL_ENV + `
@@ -402,6 +405,7 @@ const R = {
   drawHD(m, model, look) {
     const gl = this.gl, p = this.use(this.P.hd), u = p.u, a = p.a;
     gl.uniformMatrix4fv(u.uModel, false, model);
+    gl.uniformMatrix4fv(u.uBones, false, look.hdBones || IDENT_BONES);
     gl.uniform3fv(u.uPC, m.pc); gl.uniform3fv(u.uPH, m.ph);
     gl.uniform2fv(u.uUVO, m.uvo); gl.uniform2fv(u.uUVS, m.uvs);
     gl.uniform2f(u.uFired, look.firedR || 0, look.firedI || 0);
@@ -411,7 +415,8 @@ const R = {
     gl.bindBuffer(gl.ARRAY_BUFFER, m.vb);
     const used = [];
     const at = (name, n, type, norm, off) => { const l = a[name]; if (l === undefined || l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, type, norm, 16, off); used.push(l); };
-    at('aPos', 3, gl.SHORT, true, 0); at('aSlot', 1, gl.SHORT, false, 6); at('aNor', 3, gl.BYTE, true, 8); at('aUV', 2, gl.UNSIGNED_SHORT, true, 12);
+    at('aPos', 3, gl.SHORT, true, 0); at('aSlot', 1, gl.SHORT, false, 6); at('aNor', 3, gl.BYTE, true, 8); at('aBone', 1, gl.UNSIGNED_BYTE, false, 11);
+    at('aUV', 2, gl.UNSIGNED_SHORT, true, 12);
     for (const l of this.enabled) if (used.indexOf(l) < 0) gl.disableVertexAttribArray(l);
     this.enabled = used;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);

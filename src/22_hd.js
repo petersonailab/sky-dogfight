@@ -84,9 +84,12 @@ const HD = {
         mat: new Float32Array(g.mode === 2 ? [0, 0.95] : (mats[id] || [0.08, 0.34])) })),
       stores: st.data ? R.mesh(st.data, 'plane') : null,
       radius: M.radius, accY: M.accY !== undefined ? M.accY : 99,
+      // hinged parts: [null, { kind: stab|canard|elevon|ail|rud|swing, side, pivot, axis, rest? }, ...] (index = bone byte)
+      bones: (M.bones || [null]).slice(0, 8),
       vm: {
         flames: M.flames.map(f => ({ p: f.p, r: f.r })),
-        tips: M.tips.map(p => ({ p, bone: 0 })),
+        // wingtips (vortex trails) follow the swing-wing bone they belong to
+        tips: M.tips.map(t => ({ p: [t[0], t[1], t[2]], bone: t[3] || 0 })),
         pylR: M.internal ? M.internal.rad : (M.launch && M.launch.rad.length ? M.launch.rad : st.pylR),
         pylI: M.internal ? M.internal.ir : (M.launch && M.launch.ir.length ? M.launch.ir : st.pylI),
       },

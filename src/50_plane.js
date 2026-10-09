@@ -25,12 +25,14 @@ class Plane {
     this.wreck = null;
     this.snapT = 0; this.snapPos = new V3(); this.snapVel = new V3(); this.snapQ = new Q(); this.angVel = new V3(); this.corr = new V3(); this.lastSeen = 0; this.hasSnap = false;
     this.modelM = M4.create(); this.bones = new Float32Array(128); this.bones.set(IDENT_BONES);
-    this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, flash: 0 };
+    this.hdBones = new Float32Array(128); this.hdBones.set(IDENT_BONES); this.cs = new V3();
+    this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, hdBones: this.hdBones, flash: 0 };
     this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
   setAircraft(def) {
     this.def = def; this.st = def.st; this.perf = perfOf(def); this.model = acModel(def);
+    this.bones.set(IDENT_BONES); this.hdBones.set(IDENT_BONES);
     if (this.wsel === 'rad' && !def.wR) this.wsel = 'ir';
     if (this.wsel === 'ir' && !def.wI) this.wsel = 'rad';
     this.hitR = clamp(this.model.length * 0.42, 4.5, 9.5);
@@ -164,20 +166,15 @@ class Plane {
     const st = this.st, P = this.perf, m = this.model;
     this.hd = HD.get(this.def.id); this.vm = this.hd ? this.hd.vm : m;
     if (this.def.id === 'f14') { const tgt = clamp(lerp(20, 68, (this.speed - 150) / 170), 20, 68); this.sweep += (tgt - this.sweep) * Math.min(1, dt * 1.4); }
-    const pitchIn = this.local ? this.ctrl.pitch : clamp(this.rate.x / P.wb, -1, 1);
-    const rollIn = this.local ? this.ctrl.roll : clamp(this.rate.z / P.roll, -1, 1);
+    // control-surface deflection: stick input for our own aircraft, measured turn rates for everyone else;
+    // eased like a real actuator so the surfaces don't snap
+    const cs = this.cs, ke = 1 - Math.exp(-dt * 16);
+    cs.x += ((this.local ? this.ctrl.pitch : clamp(this.rate.x / P.wb, -1, 1)) - cs.x) * ke;
+    cs.y += ((this.local ? this.ctrl.yaw : clamp(this.rate.y / P.yaw, -1, 1)) - cs.y) * ke;
+    cs.z += ((this.local ? this.ctrl.roll : clamp(this.rate.z / P.roll, -1, 1)) - cs.z) * ke;
     this.propA = (this.propA + dt * (32 + 55 * (this.local ? this.ctrl.thr : 0.8))) % TAU;
-    const B = this.bones, bones = m.bones;
-    for (let k = 1; k < bones.length; k++) {
-      const bn = bones[k]; let ang = 0;
-      if (bn.kind === 'stab') ang = (-pitchIn * 13 - bn.side * rollIn * 7) * DEG;
-      else if (bn.kind === 'canard') ang = pitchIn * 13 * DEG;
-      else if (bn.kind === 'swing') ang = -bn.side * (this.sweep - 20) * DEG;
-      else if (bn.kind === 'prop') ang = this.propA;
-      _q.axisAngle(bn.axis[0], bn.axis[1], bn.axis[2], ang);
-      const p = bn.pivot, rp = _a.set(p[0], p[1], p[2]).rot(_q);
-      M4.fromQP(B.subarray(k * 16, k * 16 + 16), _q, _b.set(p[0] - rp.x, p[1] - rp.y, p[2] - rp.z));
-    }
+    this.poseBones(this.bones, m.bones);
+    if (this.hd) this.poseBones(this.hdBones, this.hd.bones);
     M4.fromQP(this.modelM, this.q, this.pos);
     const d = this.def;
     this.look.firedR = d.wR ? Math.max(0, d.wR.n - this.mR) : 0;
@@ -204,10 +201,31 @@ class Plane {
       }
     }
   }
+  // one matrix per hinged part (rotation about its hinge line). Signs: +x right, +y up, +z aft;
+  // pitch up = elevator trailing edge up, roll right = right aileron up, yaw right = rudder trailing edge right
+  poseBones(B, bones) {
+    const pi = this.cs.x, yi = this.cs.y, ri = this.cs.z;
+    for (let k = 1; k < bones.length && k < 8; k++) {
+      const bn = bones[k]; if (!bn) continue;
+      let ang = 0;
+      switch (bn.kind) {
+        case 'stab': ang = (-pi * 13 - bn.side * ri * 7) * DEG; break; // all-moving tail, also helps roll
+        case 'canard': ang = pi * 13 * DEG; break;
+        case 'elevon': ang = (-pi * 12 - bn.side * ri * 14) * DEG; break; // delta wing: elevator + aileron in one
+        case 'ail': ang = -bn.side * ri * 18 * DEG; break;
+        case 'rud': ang = yi * 18 * DEG; break;
+        case 'swing': ang = -bn.side * (this.sweep - (bn.rest !== undefined ? bn.rest : 20)) * DEG; break; // F-14 wings
+        case 'prop': ang = this.propA; break;
+      }
+      _q.axisAngle(bn.axis[0], bn.axis[1], bn.axis[2], ang);
+      const p = bn.pivot, rp = _a.set(p[0], p[1], p[2]).rot(_q);
+      M4.fromQP(B.subarray(k * 16, k * 16 + 16), _q, _b.set(p[0] - rp.x, p[1] - rp.y, p[2] - rp.z));
+    }
+  }
   tipWorld(t, out) {
     out.set(t.p[0], t.p[1], t.p[2]);
     if (t.bone) {
-      const b = this.bones, o = t.bone * 16, x = out.x, y = out.y, z = out.z;
+      const b = this.hd ? this.hdBones : this.bones, o = t.bone * 16, x = out.x, y = out.y, z = out.z;
       out.set(b[o] * x + b[o + 4] * y + b[o + 8] * z + b[o + 12], b[o + 1] * x + b[o + 5] * y + b[o + 9] * z + b[o + 13], b[o + 2] * x + b[o + 6] * y + b[o + 10] * z + b[o + 14]);
     }
     return out.rot(this.q).add(this.pos);

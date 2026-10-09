@@ -1,7 +1,7 @@
 // ===================== menus, hangar, overlays =====================
 const SWATCHES = ['#d13b2e', '#f1b434', '#3f86ea', '#2fa36b', '#e07a2b', '#9b6ad6', '#e8e8e2', '#26b5b0'];
 const UI = {
-  prefs: null, paused: false, tab: 'online', era: 'jet', hangarPlane: null, yaw: -0.6, dragging: false, dragX: 0, idleT: 0,
+  prefs: null, paused: false, tab: 'online', era: 'jet', hangarPlane: null, yaw: -0.6, camPitch: 0.32, zoom: 1, dragging: false, dragX: 0, dragY: 0, idleT: 0,
   toastT: 0, bannerT: 0, lastInfo: 0, autoGo: true, boardHeld: false, boardOpen: false, overShown: false,
   init(hot) {
     const S = Store.read();
@@ -52,8 +52,12 @@ const UI = {
     $('prevAc').addEventListener('click', () => this.stepAc(-1));
     $('nextAc').addEventListener('click', () => this.stepAc(1));
     const stage = $('stage');
-    stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; this.dragging = true; this.dragX = e.clientX; stage.setPointerCapture(e.pointerId); });
-    stage.addEventListener('pointermove', e => { if (!this.dragging) return; this.yaw += (e.clientX - this.dragX) * 0.01; this.dragX = e.clientX; this.idleT = 0; });
+    stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; this.dragging = true; this.dragX = e.clientX; this.dragY = e.clientY; stage.setPointerCapture(e.pointerId); });
+    stage.addEventListener('pointermove', e => { if (!this.dragging) return; this.yaw += (e.clientX - this.dragX) * 0.01; this.dragX = e.clientX; this.idleT = 0;
+      this.camPitch = clamp(this.camPitch + (e.clientY - this.dragY) * 0.006, 0.03, 1.4); this.dragY = e.clientY; });
+    // mouse wheel: zoom in for a closer look at the details
+    // (only in the wide layout: in the narrow one the whole menu scrolls and the wheel must keep doing that)
+    stage.addEventListener('wheel', e => { if (innerWidth <= 900) return; e.preventDefault(); this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.5, 1.5); this.idleT = 0; }, { passive: false });
     const endDrag = () => { this.dragging = false; };
     stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
     this.setEra(this.era);
@@ -169,13 +173,20 @@ const UI = {
     if (!this.dragging) { this.idleT += dt; if (this.idleT > 1.5) this.yaw += dt * 0.32; }
     const m = p.model, C = R.cam;
     const fit = Math.max(120, Math.min(stage.width * 0.78, stage.height * 1.45));
-    const fov = 30 * DEG, dist = m.radius / Math.tan(fov / 2) * (R.cssH / fit) * 0.92;
-    const pitch = this.pitchOverride !== undefined ? this.pitchOverride : 0.32;
+    const fov = 30 * DEG, dist = m.radius / Math.tan(fov / 2) * (R.cssH / fit) * 0.92 * this.zoom;
+    const pitch = this.pitchOverride !== undefined ? this.pitchOverride : this.camPitch;
     C.fov = fov; C.near = 0.5; C.far = 2000;
     C.pos.set(Math.sin(this.yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(this.yaw) * Math.cos(pitch) * dist);
     C.q.lookDir(_a.copy(C.pos).scale(-1).norm(), _b.set(0, 1, 0));
     C.ox = (stage.left + stage.width / 2) - R.cssW / 2; C.oy = (stage.top + stage.height / 2) - R.cssH / 2;
     p.pos.set(0, 0, 0); p.q.ident(); p.speed = 160;
+    // pre-flight "control check" every 10 s (stick back/forward, roll right/left, rudder right/left);
+    // the F-14 also folds its wings back and spreads them again
+    const t = (now / 1000) % 10, o = this.ctrlOverride; // tests: [pitch, roll, yaw, speed]
+    p.ctrl.pitch = o ? o[0] : t < 1.4 ? Math.sin(t / 1.4 * TAU) : 0;
+    p.ctrl.roll = o ? o[1] : t >= 1.6 && t < 3 ? Math.sin((t - 1.6) / 1.4 * TAU) : 0;
+    p.ctrl.yaw = o ? o[2] : t >= 3.2 && t < 4.6 ? Math.sin((t - 3.2) / 1.4 * TAU) : 0;
+    if (p.def.id === 'f14') p.speed = o ? o[3] || 140 : (now / 1000) % 20 >= 10 ? 330 : 140;
     p.visual(dt, now);
     R.begin([0.105, 0.12, 0.135]);
     if (!this.floor) this.floor = buildFloor();

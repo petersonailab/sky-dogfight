@@ -28,38 +28,51 @@ CFG = {
     'f16': dict(yaw=0, tex=2048, credit=dict(title='F16-C Falcon', author='Carlos.Maciel', license='CC BY 4.0',
                                              url='https://sketchfab.com/3d-models/f16-c-falcon-4bc2ff75dc584af2afd0aa6bd8b79015'),
                 stores=[S('rad', -3.06, 2.0), S('rad', 3.06, 2.0), S('rad', -4.73, 2.03, rail=True), S('rad', 4.73, 2.03, rail=True),
-                        S('ir', -4.03, 2.0), S('ir', 4.03, 2.0)]),
+                        S('ir', -4.03, 2.0), S('ir', 4.03, 2.0)],
+                bones=[dict(kind='stab', side=-1, node=r'^ElevatorL01'), dict(kind='stab', side=1, node=r'^ElevatorR01'),
+                       dict(kind='ail', side=-1, node=r'^AileronL01'), dict(kind='ail', side=1, node=r'^AileronR01'),
+                       dict(kind='rud', side=0, node=r'^RudderL01')]),
     'f22': dict(yaw=0, tex=2048, target=42000, credit=dict(title='F22 RAPTOR', author='sxnneh', license='Sketchfab Standard',
                                                             url='https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'),
                 rm_node=r'^(wheel_|gear_|steeringwheel|dials_|weapon_1a|door_pside_f|bonnet)',
                 rm_mat=r'^(vc_1|vc_2|vc_4|vc_5|vc_6|vc_7|vc_mfd_btn|screens|script_rt_dials_lazer|wing_broken|f22_weps_t|glass_in)$',
-                internal=dict(rad=[[-0.34, -0.55, -0.9], [0.34, -0.55, -0.9]] * 3, ir=[[-1.12, -0.35, -1.1], [1.12, -0.35, -1.1]])),
+                internal=dict(rad=[[-0.34, -0.55, -0.9], [0.34, -0.55, -0.9]] * 3, ir=[[-1.12, -0.35, -1.1], [1.12, -0.35, -1.1]]),
+                bones=[dict(kind='stab', side=-1, node=r'^elevator_l_9', mesh=r'^Object_42$', xsign=-1), dict(kind='stab', side=1, node=r'^elevator_l_9', mesh=r'^Object_42$', xsign=1),
+                       dict(kind='ail', side=-1, node=r'^aileron_l_25'), dict(kind='ail', side=1, node=r'^aileron_r_29'),
+                       dict(kind='rud', side=-1, node=r'^rudder_18'), dict(kind='rud', side=1, node=r'^rudder\.001_37')]),
     'f14': dict(yaw=244, tex=1024, credit=dict(title='F14', author='manilov.ap', license='CC BY 4.0',
                                                url='https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af'),
                 rm_node=r'^(Torus\d+|Cylinder(48|50|51|54|55|56|58|60|61|63|64|65|66|67)|Box(09|10|60|61|64|65|66|67|68)|Line03|Object09)-FACES',
                 stores=[S('big', -0.48, -1.0), S('big', 0.48, -1.0), S('big', -0.48, 3.0), S('big', 0.48, 3.0),
-                        S('ir', -2.9, 0.43), S('ir', 2.9, 0.43), S('ir', -2.43, 1.83), S('ir', 2.43, 1.83)]),
+                        S('ir', -2.9, 0.43), S('ir', 2.9, 0.43), S('ir', -2.43, 1.83), S('ir', 2.43, 1.83)],
+                bones=[dict(kind='swing', side=-1, node=r'^kr_l-FACES', pivot=(-2.4, 0.12, 0.8), rest=68.0), dict(kind='swing', side=1, node=r'^kr_r-FACES', pivot=(2.4, 0.12, 0.8), rest=68.0),
+                       dict(kind='stab', side=-1, node=r'^Cylinder03-FACES'), dict(kind='stab', side=1, node=r'^Cylinder69-FACES')]),
     'su27': dict(yaw=90, tex=1024, credit=dict(title='Sukhoi Su-27M (USSR)', author='42manako', license='CC BY-NC 4.0',
                                                url='https://sketchfab.com/3d-models/sukhoi-su-27m-ussr-af788ebfb576454ca5eaac2313a30e5b'),
                  rm_comp=[dict(x=(0, 0.4), z=(-5.4, -2.0), y=(-9, 0.1), smax=3.0),
                           dict(x=(1.35, 2.35), z=(2.2, 3.4), y=(-9, 0.3), smax=2.5),
                           dict(x=(2.3, 2.8), z=(0.3, 1.2), y=(-9, 1.0), sxmin=0.6)],
                  stores=[S('rad', -3.36, 3.32, rail=True), S('rad', 3.36, 3.32, rail=True), S('rad', -1.02, 1.55, rail=True), S('rad', 1.02, 1.55, rail=True),
-                         S('ir', -4.55, 3.32, rail=True), S('ir', 4.55, 3.32, rail=True), S('ir', -6.18, 4.37, rail=True), S('ir', 6.18, 4.37, rail=True)]),
+                         S('ir', -4.55, 3.32, rail=True), S('ir', 4.55, 3.32, rail=True), S('ir', -6.18, 4.37, rail=True), S('ir', 6.18, 4.37, rail=True)],
+                 bones=[dict(kind='stab', side=s, cbox=dict(x=(1.7, 4.9), z=(5.3, 9.0), y=(-0.7, 0.1), sx=2.0), xsign=s) for s in (-1, 1)]),
     'typhoon': dict(yaw=90, tex=1024, credit=dict(title='Eurofighter Typhoon - Fighter Jet - Free', author='bohmerang', license='CC BY-NC-SA 4.0',
                                                   url='https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'),
                     rm_node=r'^(LandingOn|LandingLight)',
                     stores=[S('rad', -3.65, 1.6), S('rad', 3.65, 1.6), S('rad', -0.75, 1.0), S('rad', 0.75, 1.0),
-                            S('ir', -4.45, 1.05), S('ir', 4.45, 1.05), S('ir', -2.7, 2.3, pylon=True), S('ir', 2.7, 2.3, pylon=True)]),
+                            S('ir', -4.45, 1.05), S('ir', 4.45, 1.05), S('ir', -2.7, 2.3, pylon=True), S('ir', 2.7, 2.3, pylon=True)],
+                    bones=[dict(kind='canard', side=s, cbox=dict(x=(0.4, 2.2), z=(-6.3, -4.0), y=(-0.4, 0.45), sx=1.0), xsign=s) for s in (-1, 1)]),
     'm2000': dict(yaw=180, tex=1024, target=44000, err=0.01, opts=32, credit=dict(title='Mirage 2000-5F', author='Jeyhun1985', license='CC BY 4.0',
                                                                url='https://sketchfab.com/3d-models/mirage-2000-5f-3894c147f6474d5eb6308b8d2724a914'),
                   glb_stores=[dict(k='rad', c=(-0.74, -1.04, -1.36), L=3.13), dict(k='rad', c=(0.74, -1.04, -1.36), L=3.13),
                               dict(k='rad', c=(-0.95, -0.98, 2.8), L=3.11), dict(k='rad', c=(0.95, -0.98, 2.8), L=3.11),
-                              dict(k='ir', c=(-3.32, -1.0, 2.27), L=2.76), dict(k='ir', c=(3.32, -1.0, 2.27), L=2.76)]),
+                              dict(k='ir', c=(-3.32, -1.0, 2.27), L=2.76), dict(k='ir', c=(3.32, -1.0, 2.27), L=2.76)],
+                  bones=[dict(kind='elevon', side=s, cbox=dict(x=(0.8, 2.4), z=(3.7, 4.9), y=(-0.75, -0.3), sx=1.0, mintris=50), xsign=s) for s in (-1, 1)]),
     'mig21': dict(yaw=180, tex=1024, target=46000, credit=dict(title='1972 MiG-21bis', author='OUTPISTON', license='CC BY-NC-SA 4.0',
                                                                url='https://sketchfab.com/3d-models/1972-mig-21bis-0fdbda95ec1a4121863fff5065c2fc51'),
                   rm_comp=[dict(x=(2.2, 2.8), z=(-1.6, 3.8), y=(-0.8, -0.15), ymaxmax=-0.2)],
-                  stores=[S('rad', -2.5, 1.0, rail=True), S('rad', 2.5, 1.0, rail=True), S('ir', -1.6, 1.2, pylon=True), S('ir', 1.6, 1.2, pylon=True)]),
+                  stores=[S('rad', -2.5, 1.0, rail=True), S('rad', 2.5, 1.0, rail=True), S('ir', -1.6, 1.2, pylon=True), S('ir', 1.6, 1.2, pylon=True)],
+                  bones=[dict(kind='stab', side=s, cbox=dict(x=(0.4, 1.9), z=(3.8, 6.7), y=(0.05, 0.35), sx=1.0, mintris=50), xsign=s) for s in (-1, 1)]
+                       + [dict(kind='ail', side=s, cbox=dict(x=(1.85, 3.1), z=(2.0, 2.8), y=(-0.15, 0.15), sx=0.9, mintris=50), xsign=s) for s in (-1, 1)]),
 }
 
 
@@ -123,7 +136,65 @@ def build(name):
         m = np.isin(lab, sel) & tri_keep
         tri_slot[m] = slot
         print(f'  glb store {st["k"]} at {st["c"]}: {len(sel)} parts, {m.sum()} tris -> slot {slot}')
-    Fk = F[tri_keep]; Gk = G[tri_keep]; Sk = tri_slot[tri_keep]
+    # ---------- control surfaces: bone per triangle, hinge pivot + axis ----------
+    tri_bone = np.zeros(len(F), np.uint8)
+    bone_meta = [None]
+    cen = V[F].mean(axis=1)
+    for bi, bc in enumerate(cfg.get('bones', []), start=1):
+        m = np.zeros(len(F), bool)
+        if 'node' in bc:
+            rn = re.compile(bc['node']); rm = re.compile(bc['mesh']) if bc.get('mesh') else None
+            for i, p in enumerate(prims):
+                names = p['path'].split('/')
+                if any(rn.search(n or '') for n in names) and (rm is None or rm.search(names[-1] or '')):
+                    m[offs[i]:offs[i + 1]] = True
+        if 'cbox' in bc:
+            cb = bc['cbox']; sel = []
+            for c in range(len(cnt)):
+                x, y, z = ctr[c]
+                if in_rng(abs(x), cb['x']) and in_rng(z, cb['z']) and in_rng(y, cb['y']) and sz[c][0] >= cb.get('sx', 0) and cnt[c] >= cb.get('mintris', 8):
+                    sel.append(c)
+            m |= np.isin(lab, sel)
+        if bc.get('xsign'):
+            m &= np.sign(cen[:, 0]) == bc['xsign']
+        m &= tri_keep
+        if not m.any():
+            print('  !! no triangles for bone', bc); continue
+        tri_bone[m] = bi
+        P = V[np.unique(F[m])]
+        ax_ = np.abs(P[:, 0]); x_in, x_out = ax_.min(), ax_.max(); span = max(x_out - x_in, 1e-3)
+        kind = bc['kind']; extra = {}
+        if kind in ('stab', 'canard'):
+            root = P[ax_ <= x_in + 0.2 * span]
+            zf, zb = root[:, 2].min(), root[:, 2].max()
+            pivot = [float(np.sign(P[:, 0].mean()) * x_in), float(root[:, 1].mean()), float(zf + 0.35 * (zb - zf))]
+            axis = [1.0, 0.0, 0.0]
+        elif kind in ('ail', 'elevon', 'flap'):
+            inner = P[ax_ <= x_in + 0.15 * span]; outer = P[ax_ >= x_out - 0.15 * span]
+            A = inner[np.argmin(inner[:, 2])]; B = outer[np.argmin(outer[:, 2])]
+            d = B - A; d /= np.linalg.norm(d)
+            if d[0] < 0: d = -d
+            pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+        elif kind == 'rud':
+            y0, y1 = P[:, 1].min(), P[:, 1].max(); h = y1 - y0
+            bot = P[P[:, 1] <= y0 + 0.15 * h]; top = P[P[:, 1] >= y1 - 0.15 * h]
+            A = bot[np.argmin(bot[:, 2])]; B = top[np.argmin(top[:, 2])]
+            d = B - A; d /= np.linalg.norm(d)
+            if d[1] < 0: d = -d
+            pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+        elif kind == 'swing':
+            pivot = [float(v) for v in bc['pivot']]; axis = [0.0, 1.0, 0.0]
+            # leading-edge sweep of the panel as modelled: front-most z per spanwise bin, outer 60 %
+            xs = np.linspace(x_in + 0.45 * span, x_out - 0.15 * span, 10)
+            pts = []
+            for a0, a1 in zip(xs[:-1], xs[1:]):
+                b_ = P[(ax_ >= a0) & (ax_ < a1)]
+                if len(b_): pts.append([(a0 + a1) / 2, b_[:, 2].min()])
+            pts = np.array(pts); slope = np.polyfit(pts[:, 0], pts[:, 1], 1)[0]
+            extra['rest'] = float(bc['rest']) if 'rest' in bc else round(float(np.degrees(np.arctan(slope))), 2)
+        bone_meta.append(dict(kind=kind, side=int(bc.get('side', 0)), pivot=[round(v, 4) for v in pivot], axis=[round(v, 4) for v in axis], **extra))
+        print(f'  bone {bi} {kind} side {bc.get("side")}: {m.sum()} tris, pivot {np.round(pivot, 2)}, axis {np.round(axis, 2)} {extra}')
+    Fk = F[tri_keep]; Gk = G[tri_keep]; Sk = tri_slot[tri_keep]; Bk = tri_bone[tri_keep]
     print(f'{name}: kept {len(Fk)} / {len(F)} tris, removed comps {len(removed_comps)}')
     # ---------- measurements on the kept geometry ----------
     used_v = np.unique(Fk)
@@ -180,10 +251,13 @@ def build(name):
     xm = VK[:, 0].max()
     for s in (1, -1):
         m = (VK[:, 0] * s > xm * 0.95)
-        tips.append([round(float(s * xm), 3), round(float(VK[m, 1].mean()), 3), round(float(VK[m, 2].max() - 0.2), 3)])
+        tb = 0
+        for bi, bm in enumerate(bone_meta[1:], start=1):
+            if bm['kind'] == 'swing' and bm['side'] == s: tb = bi
+        tips.append([round(float(s * xm), 3), round(float(VK[m, 1].mean()), 3), round(float(VK[m, 2].max() - 0.2), 3), tb])
     radius = float(np.linalg.norm(VK, axis=1).max())
     acc_y = float(VK[:, 1].max()) - cfg.get('band', 0.5)  # fin-tip band painted in the player's / team colour
-    return dict(js=js, binc=binc, prims=prims, V=V, F=Fk, G=Gk, S=Sk, meta=dict(
+    return dict(js=js, binc=binc, prims=prims, V=V, F=Fk, G=Gk, S=Sk, B=Bk, meta=dict(bones=bone_meta, 
         flames=flames, tips=tips, stores=stores, launch=glb_launch, internal=cfg.get('internal'), radius=round(radius, 3), accY=round(acc_y, 3)), info=info)
 
 
@@ -217,7 +291,7 @@ def encode_textures(js, binc, img_ids, cfg, alpha_imgs):
 def write_model(name, R):
     cfg = CFG[name]
     js, binc, prims = R['js'], R['binc'], R['prims']
-    V = R['V']; F = R['F']; G = R['G']; Sl = R['S']
+    V = R['V']; F = R['F']; G = R['G']; Sl = R['S']; Bt = R['B']
     # per-vertex attributes (global vertex numbering = concatenated prims)
     NOR = np.concatenate([p['nor'] if p['nor'] is not None else np.tile([0, 1, 0], (len(p['pos']), 1)) for p in prims]).astype(np.float32)
     UV = np.concatenate([p['uv'][:, :2] if p['uv'] is not None else np.zeros((len(p['pos']), 2)) for p in prims]).astype(np.float32)
@@ -227,22 +301,24 @@ def write_model(name, R):
     # slot per vertex: vertices of slotted triangles
     SV = np.zeros(len(V), np.int16)
     SV[F[Sl > 0].ravel()] = np.repeat(Sl[Sl > 0], 3)
+    BV = np.zeros(len(V), np.uint8)
+    BV[F[Bt > 0].ravel()] = np.repeat(Bt[Bt > 0], 3)
     # remap vertices: only used, unique (pos, nor, uv, slot, material)
     used = np.unique(F)
     mat_v = np.array([mat_of_prim[g] for g in GV])
-    key = np.concatenate([np.round(V[used] * 2000), np.round(NOR[used] * 100), np.round(UV[used] * 8000), SV[used][:, None], mat_v[used][:, None]], axis=1)
+    key = np.concatenate([np.round(V[used] * 2000), np.round(NOR[used] * 100), np.round(UV[used] * 8000), SV[used][:, None], BV[used][:, None], mat_v[used][:, None]], axis=1)
     _, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
     newid = np.full(len(V), -1, np.int64)
     newid[used] = inv.ravel()
     vsrc = used[first]
     Fn = newid[F]
-    pos = V[vsrc].astype(np.float32); nor = NOR[vsrc]; uv = UV[vsrc]; slot = SV[vsrc]; vmat = mat_v[vsrc]
+    pos = V[vsrc].astype(np.float32); nor = NOR[vsrc]; uv = UV[vsrc]; slot = SV[vsrc]; bone = BV[vsrc]; vmat = mat_v[vsrc]
     nv = len(pos)
     print(f'  unique verts {nv}, tris {len(Fn)}')
     # simplify
     target = cfg.get('target')
     if target and len(Fn) > target:
-        attrs = np.concatenate([nor * 0.5, uv * 1.0, (vmat[:, None] * 10.0)], axis=1).astype(np.float32)
+        attrs = np.concatenate([nor * 0.5, uv * 1.0, (vmat[:, None] * 10.0), (bone[:, None] * 10.0)], axis=1).astype(np.float32)
         w = np.ones(attrs.shape[1], np.float32)
         lock = np.zeros(nv, np.uint8)
         with tempfile.TemporaryDirectory() as td:
@@ -258,7 +334,7 @@ def write_model(name, R):
             print(f'  simplified to {len(Fn)} tris (error {err:.4f})')
         used2 = np.unique(Fn)
         remap = np.full(nv, -1, np.int64); remap[used2] = np.arange(len(used2))
-        Fn = remap[Fn]; pos = pos[used2]; nor = nor[used2]; uv = uv[used2]; slot = slot[used2]; vmat = vmat[used2]
+        Fn = remap[Fn]; pos = pos[used2]; nor = nor[used2]; uv = uv[used2]; slot = slot[used2]; bone = bone[used2]; vmat = vmat[used2]
         nv = len(pos)
     # groups by material (triangle's material = its first vertex's material)
     tmat = vmat[Fn[:, 0]]
@@ -299,6 +375,7 @@ def write_model(name, R):
     vb[:, 0:6] = q.view(np.uint8).reshape(nv, 6)
     vb[:, 6:8] = slot.astype(np.int16).view(np.uint8).reshape(nv, 2)
     vb[:, 8:11] = qn.view(np.uint8).reshape(nv, 3)
+    vb[:, 11] = bone
     vb[:, 12:16] = qu.view(np.uint8).reshape(nv, 4)
     idx32 = nv > 65535
     ib = idx.astype(np.uint32 if idx32 else np.uint16).tobytes()
