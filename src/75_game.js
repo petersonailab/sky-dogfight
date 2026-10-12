@@ -1,7 +1,7 @@
 // ===================== match / session logic =====================
 const WEAPON_NAME = ['機砲', '飛彈', '墜毀', '脫離戰區'];
 const RESPAWN_MS = 4500;
-const RELOAD_RAD = 20, RELOAD_IR = 15;
+const RELOAD_RAD = 7, RELOAD_IR = 7; // seconds to get one missile of each type back
 
 const Game = {
   active: false, kind: '', planes: [], byKey: new Map(), me: null, view: null, brains: new Map(), bots: [],

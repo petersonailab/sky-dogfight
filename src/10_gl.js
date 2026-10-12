@@ -57,6 +57,27 @@ void main(){
 varying vec3 vObj; varying vec3 vObjN; varying vec3 vW; varying vec3 vN; varying float vMat;
 uniform vec3 uTop; uniform vec3 uBot; uniform vec3 uC2; uniform vec3 uC3; uniform vec3 uRad; uniform vec3 uAccent; uniform vec3 uGlass; uniform vec3 uBandCol;
 uniform vec4 uPat; uniform vec4 uBand; uniform vec2 uMetal; uniform float uFlash;
+uniform vec4 uMk[4]; uniform float uMkStyle; uniform vec3 uMkC0; uniform vec3 uMkC1;
+// national insignia painted straight onto the surface: kind 1 = wing (top and bottom, both wings, centre x,z),
+// kind 2 = fuselage side (both sides, centre z,y); style 0 = plain disc (hinomaru), 1 = ROC blue sky / white sun
+vec3 marks(vec3 c, vec3 p, vec3 n){
+  for (int i = 0; i < 4; i++) {
+    vec4 m = uMk[i];
+    if (m.w < 0.5) continue;
+    vec2 d;
+    if (m.w < 1.5) { if (abs(n.y) < 0.3) continue; d = vec2(abs(p.x) - m.x, p.z - m.y); }
+    else { if (abs(n.x) < 0.3) continue; d = vec2(p.z - m.x, p.y - m.y); }
+    float r = length(d) / m.z;
+    if (r > 1.0) continue;
+    if (uMkStyle < 0.5) { c = uMkC0; continue; }
+    float k = abs(fract(atan(d.y, d.x) * 1.9098593 + 0.5) - 0.5) * 2.0;    // 12 sun rays: 0 on a ray's axis
+    vec3 col = uMkC0;
+    if (r > 0.42 && r < 0.76 && k < (0.76 - r) / 0.34) col = uMkC1;
+    if (r < 0.37) col = uMkC1;
+    c = col;
+  }
+  return c;
+}
 float h21(vec2 p){ p = fract(p * vec2(234.34, 435.345)); p += dot(p, p + 34.23); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }
@@ -83,6 +104,7 @@ vec3 paintCol(){
     if (ax > 2.0 && ax < 3.25) c = mod(floor((ax - 2.0) / 0.25), 2.0) < 0.5 ? vec3(0.9, 0.9, 0.86) : vec3(0.07);
     if (p.z > uBand.x && p.z < uBand.y && ax < 0.75) c = mod(floor((p.z - uBand.x) / 0.25), 2.0) < 0.5 ? vec3(0.9, 0.9, 0.86) : vec3(0.07);
   }
+  c = marks(c, p, n);
   float pl = smoothstep(0.965, 1.0, fract(p.z * 0.72 + 0.5));
   return c * (1.0 - 0.07 * pl);
 }
@@ -417,6 +439,8 @@ const R = {
     gl.uniform3fv(u.uTop, pt.top); gl.uniform3fv(u.uBot, pt.bot); gl.uniform3fv(u.uC2, pt.c2); gl.uniform3fv(u.uC3, pt.c3);
     gl.uniform3fv(u.uRad, pt.rad); gl.uniform3fv(u.uGlass, pt.glass); gl.uniform3fv(u.uBandCol, pt.bandCol);
     gl.uniform4fv(u.uPat, pt.pat); gl.uniform4fv(u.uBand, pt.band); gl.uniform2fv(u.uMetal, pt.metal);
+    gl.uniform4fv(u.uMk, pt.mk || NO_MARKS); gl.uniform1f(u.uMkStyle, pt.mkStyle || 0);
+    if (pt.mk) { gl.uniform3fv(u.uMkC0, pt.mkC0); gl.uniform3fv(u.uMkC1, pt.mkC1); }
     gl.uniform3fv(u.uAccent, look.accent || pt.top);
     gl.uniform1f(u.uFlash, look.flash || 0);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
@@ -501,6 +525,7 @@ const R = {
 const IDENT = M4.create();
 const ONE3 = new Float32Array([1, 1, 1]);
 const TINT4 = new Float32Array(4);
+const NO_MARKS = new Float32Array(16);
 // afterburner colours: Western engines burn orange-red, Soviet/Russian ones blue (with the white-hot core and a reddish nozzle ring)
 const FLAME_PAL = {
   us: { c0: new Float32Array([1.0, 0.94, 0.78]), c1: new Float32Array([1.0, 0.52, 0.14]), c2: new Float32Array([0.85, 0.16, 0.04]), c3: new Float32Array([1.0, 0.42, 0.2]) },

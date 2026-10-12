@@ -32,7 +32,7 @@ const AC_DEFS = [
     gun: 'M61A1 20 mm 機砲', note: '單發動機輕型戰機，腹部進氣口加無框泡型座艙罩。最佳轉向速率 41°/秒、滾轉 240°/秒，近距纏鬥最靈活。',
     paint: { pattern: 1, top: '#80888e', bot: '#a7aeb3', c2: '#8e969b', c3: '#757d83', scale: 0.26, rad: '#5f6569', radZ: 1.9, glass: '#2f3a44', metal: 0.06, gloss: 0.34 },
     st: { hp: 174, vab: 1388, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 34, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -65,7 +65,7 @@ const AC_DEFS = [
     gun: 'M61A2 20 mm 機砲', note: '匿蹤戰機，飛彈收在內藏彈艙。不開後燃器也能飛到 1,361 km/h（超音速巡航），中程彈 6 枚全場最多。',
     paint: { pattern: 1, top: '#6c7177', bot: '#686d72', c2: '#7c8187', c3: '#63686e', scale: 0.2, glass: '#8a6a2c', metal: 0.12, gloss: 0.3 },
     st: { hp: 297, vab: 1510, vmax: 1361, vtab: 742, vt: 498, vc: 810, vr: 144, vs: 288, vcl: 603, aab: 47, acc: 28, wb: 40, wh: 16, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
     loadout: [['aim120', 6], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -94,7 +94,7 @@ const AC_DEFS = [
     gun: 'M61A1 20 mm 機砲', note: '可變後掠翼艦載戰機，機翼會隨速度自動後掠。雷達 17.8 公里看得最遠，AIM-54 鳳凰飛彈速度最快。',
     paint: { pattern: 0, top: '#b3b2a9', bot: '#e3e3dc', c2: '#b3b2a9', c3: '#b3b2a9', scale: 0.3, rad: '#c9c8bf', radZ: 1.8, glass: '#2e3944', metal: 0.05, gloss: 0.42 },
     st: { hp: 251, vab: 1240, vmax: 739, vtab: 580, vt: 431, vc: 666, vr: 180, vs: 288, vcl: 496, aab: 41, acc: 25, wb: 36, wh: 14, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 17.8, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 17.8, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
     loadout: [['aim54', 4], ['aim9m', 4]],
     build(a) {
       a.body([
@@ -126,10 +126,10 @@ const AC_DEFS = [
   },
   {
     id: 'su27', era: 'jet', name: 'Su-27 側衛', en: 'SU-27 FLANKER', country: '蘇聯／俄羅斯', first: 1977, len: 21.9, span: 14.7, flame: 'ru',
-    gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高，熱焰彈冷卻也最短。',
+    gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高。',
     paint: { pattern: 2, top: '#9fb3c4', bot: '#c2d0da', c2: '#7f9db7', c3: '#b6c6d1', scale: 0.36, rad: '#d3d8cf', radZ: 1.9, glass: '#2c3a48', metal: 0.05, gloss: 0.3, },
     st: { hp: 297, vab: 1496, vmax: 947, vtab: 780, vt: 506, vc: 846, vr: 180, vs: 288, vcl: 598, aab: 43, acc: 27, wb: 37, wh: 16, roll: 180, resp: 6,
-      abFuel: 17.3, abRegen: 12.8, flareCd: 4.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
+      abFuel: 17.3, abRegen: 12.8, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
     loadout: [['r27r', 4], ['r73', 4]],
     build(a) {
       a.body([
@@ -164,7 +164,7 @@ const AC_DEFS = [
     gun: 'BK-27 27 mm 機砲', note: '鴨翼加三角翼的歐洲雙發戰機，腹下有張「笑臉」進氣口。不開後燃器就有 1,240 km/h，掛流星遠程飛彈。',
     paint: { pattern: 0, top: '#8d9399', bot: '#a9afb4', c2: '#979da2', c3: '#868c92', scale: 0.25, rad: '#6f757a', radZ: 1.7, glass: '#2f3943', metal: 0.06, gloss: 0.36 },
     st: { hp: 232, vab: 1510, vmax: 1240, vtab: 637, vt: 440, vc: 738, vr: 144, vs: 288, vcl: 623, aab: 47, acc: 26, wb: 40, wh: 15, roll: 190, resp: 6,
-      abFuel: 16.8, abRegen: 14.4, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
+      abFuel: 16.8, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
     loadout: [['meteor', 4], ['irist', 4]],
     build(a) {
       a.body([
@@ -194,7 +194,7 @@ const AC_DEFS = [
     gun: 'DEFA 554 30 mm 機砲 ×2', note: '沒有水平尾翼的純三角翼，中華民國空軍也有服役。加速和爬升最快，但急轉彎掉速很兇。',
     paint: { pattern: 1, top: '#8796a5', bot: '#a6b3be', c2: '#9eacb9', c3: '#7a8a99', scale: 0.24, rad: '#6a7176', radZ: 1.75, glass: '#2d3944', metal: 0.06, gloss: 0.34 },
     st: { hp: 223, vab: 1509, vmax: 907, vtab: 558, vt: 362, vc: 810, vr: 144, vs: 216, vcl: 653, aab: 57, acc: 34, wb: 40, wh: 15, roll: 175, resp: 6,
-      abFuel: 14.4, abRegen: 14.4, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 9.5, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
+      abFuel: 14.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 9.5, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
     loadout: [['s530d', 4], ['magic', 4]],
     build(a) {
       a.body([
@@ -223,9 +223,11 @@ const AC_DEFS = [
   {
     id: 'idf', era: 'jet', name: 'F-CK-1 經國號', en: 'F-CK-1 CHING-KUO', country: '中華民國', first: 1989, len: 14.21, span: 9.46,
     gun: 'M61A1 20 mm 機砲', note: '臺灣自製的雙發防禦戰機，兩側進氣口加翼端飛彈。轉向和 F-16 一樣利落，機體更耐打、加速更快。',
-    paint: { pattern: 1, top: '#9aa2a8', bot: '#b4babe', c2: '#8b949a', c3: '#a8afb4', scale: 0.25, rad: '#6f767b', radZ: 1.3, glass: '#2e3a44', metal: 0.06, gloss: 0.34 },
+    // ROC Air Force air-superiority grey as on the AIDC three-view: darker grey on top, light grey sides and belly
+    paint: { pattern: 0, top: '#9ba1a6', bot: '#d3d6d7', c2: '#9ba1a6', c3: '#9ba1a6', scale: 0.25, rad: '#575c60', radZ: 1.3, glass: '#3b5566', metal: 0.06, gloss: 0.36,
+      marks: [{ wing: [3.2, 8.78, 0.32] }], markStyle: 'roc', markCol: '#22388c', markCol2: '#f2f2ee' },
     st: { hp: 200, vab: 1400, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 38, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       // after the AIDC three-view: drooped radome with a long pitot, bubble canopy, kidney intakes under long LERX,
@@ -249,6 +251,8 @@ const AC_DEFS = [
       a.fin([[0, 9.6, 13.3, 0.24], [0.4, 10.3, 13.3, 0.2], [1.96, 12.2, 13.3, 0.07]], { y: 0.56, accentFrom: 1.45 });
       a.nozzle(0.31, -0.04, 12.5, 0.33, 0.3, 0.88); a.nozzle(-0.31, -0.04, 12.5, 0.33, 0.3, 0.88);
       a.canopy(4.05, 0.32, 0.47, 0.44, 1.7);
+      { const t = (3.15 - 4.05) / 1.7, k = Math.sqrt(1 - t * t);   // windscreen frame
+        a.mat(MAT.DARK); a.b.loft([{ z: 3.15, w: 0.47 * k + 0.012, h: 0.44 * k + 0.012, hb: 0.05, y: 0.32 }, { z: 3.2, w: 0.47 * k + 0.012, h: 0.44 * k + 0.012, hb: 0.05, y: 0.32 }], { cap0: false, cap1: false, seg: 16 }); a.mat(MAT.PAINT); }
       a.gun(-0.75, 0.12, 5.0);
       a.rail(4.1, -0.11, 8.0, 9.55); a.rail(-4.1, -0.11, 8.0, 9.55);
       a.missile(-0.56, -0.96, 7.0, 'rad'); a.missile(0.56, -0.96, 7.0, 'rad');
@@ -262,7 +266,7 @@ const AC_DEFS = [
     gun: 'GSh-23L 23 mm 機砲', est: true, note: '機頭進氣、中央有震波錐的經典三角翼，產量最多的超音速戰機。（這架的數值是估計值）',
     paint: { pattern: 3, top: '#b9bec2', bot: '#c5c9cc', c2: '#b9bec2', c3: '#b9bec2', scale: 0.3, glass: '#2f3b45', metal: 0.72, gloss: 0.6 },
     st: { hp: 165, vab: 1420, vmax: 790, vtab: 600, vt: 450, vc: 760, vr: 144, vs: 270, vcl: 580, aab: 52, acc: 28, wb: 34, wh: 14, roll: 200, resp: 6,
-      abFuel: 12.0, abRegen: 14.4, flareCd: 5.0, flareDur: 1.6, detect: 3.0, radar: 6.0, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
+      abFuel: 12.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 6.0, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
     loadout: [['r3r', 2], ['r60', 2]],
     build(a) {
       a.body([
@@ -341,7 +345,8 @@ const AC_DEFS = [
     // early-war scheme after the Tamiya A6M2 sheet (Akagi, Dec 1941): ameiro grey-green all over, black cowling,
     // red command band round the rear fuselage
     paint: { pattern: 0, top: '#b9b59e', bot: '#b2ae97', c2: '#b9b59e', c3: '#b9b59e', scale: 0.3, rad: '#232322', radZ: 1.72, glass: '#3a4752', metal: 0.04, gloss: 0.3,
-      band: [5.95, 6.35], bandOn: true, bandCol: '#a32b25' },
+      band: [5.95, 6.35], bandOn: true, bandCol: '#a32b25',
+      marks: [{ wing: [4.45, 3.42, 0.62] }, { side: [4.98, 0.06, 0.5] }], markCol: '#b8241b' },
     st: { hp: 70, vab: 533, vmax: 510, vtab: 370, vt: 355, vc: 320, vr: 110, vs: 125, vcl: 320, aab: 10, acc: 8.5, wb: 38, wh: 11, roll: 120, rollHi: 0.5, resp: 7,
       abFuel: 20, abRegen: 15, flareCd: 0, flareDur: 0, detect: 4.0, radar: 0, scan: 0, gunRate: 18, gunDmg: 3.6, ammo: 700, prop: true, bullet: 820 },
     loadout: [],
@@ -364,6 +369,14 @@ const AC_DEFS = [
         const t = (z - 3.85) / 1.2, k = Math.sqrt(Math.max(0, 1 - t * t));
         a.b.loft([{ z, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }, { z: z + 0.035, w: 0.32 * k + 0.012, h: 0.4 * k + 0.012, hb: 0.05, y: 0.5 }], { cap0: false, cap1: false, seg: 16 });
       }
+      a.mat(MAT.DARK);
+      for (const s of [1, -1]) {
+        a.b.cyl([0.46 * s, -0.04, 1.62], [0.52 * s, -0.12, 2.0], 0.05, 0.045, { seg: 8, cap1: true });    // exhaust stacks
+        a.b.cyl([2.35 * s, -0.17, 1.98], [2.35 * s, -0.17, 2.45], 0.032, 0.032, { seg: 8, cap0: true });  // 20 mm cannon barrels
+      }
+      a.b.box([0, 0.86, 5.18], 0.035, 0.78, 0.09);                                                       // radio mast
+      a.b.cyl([0, 1.24, 5.2], [0, 1.47, 8.72], 0.006, 0.006, { seg: 4 });                              // aerial wire to the fin
+      a.mat(MAT.GRAY); a.b.cyl([-5.05, 0.1, 2.95], [-5.05, 0.1, 2.5], 0.012, 0.012, { seg: 6 });          // pitot, left wing
       a.mat(MAT.PAINT);
       for (const s of [1, -1]) { a.gun(2.4 * s, -0.36, 2.4); a.gun(0.16 * s, 0.48, 1.0); }
       a.tip(6.0, 0.2, 3.7); a.tip(-6.0, 0.2, 3.7);
@@ -502,6 +515,14 @@ function paintUniforms(def, shift) {
     pat: new Float32Array([P.pattern || 0, P.scale || 0.3, P.radZ !== undefined ? P.radZ - shift : -999, P.stripes ? 1 : 0]),
     band: new Float32Array([P.band ? P.band[0] - shift : -999, P.band ? P.band[1] - shift : -999, P.bandOn ? 1 : 0, 0]),
     metal: new Float32Array([P.metal || 0.06, P.gloss || 0.32]),
+    // insignia: { wing: [x, z, r] } / { side: [z, y, r] } in builder coordinates (z from the nose)
+    mk: P.marks ? new Float32Array(Array.from({ length: 16 }, (_, i) => {
+      const m = P.marks[i >> 2]; if (!m) return 0;
+      const v = m.wing ? [m.wing[0], m.wing[1] - shift, m.wing[2], 1] : [m.side[0] - shift, m.side[1], m.side[2], 2];
+      return v[i & 3];
+    })) : null,
+    mkStyle: P.markStyle === 'roc' ? 1 : 0,
+    mkC0: f(P.markCol || '#b5251d'), mkC1: f(P.markCol2 || '#f4f4f0'),
   };
 }
 

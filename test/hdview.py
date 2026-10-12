@@ -18,6 +18,9 @@ VIEWS = {
              ('side', [0, 0, 0], [14, 0.5, 0], 0.8, False, 40), ('below', [0, 0, 0], [3, -10, 2], 0.8, False, 40)],
 }
 VIEWS['all'] = VIEWS['stores'][:2] + VIEWS['flames'][:2]
+# propeller seen from the front at a few moments: the blade roots must stay on the spinner
+VIEWS['propfront'] = [('front t0', [0, 0, -3], [0.01, 0.3, -11], 0.8, False, 40), ('front t1', [0, 0, -3], [0.01, 0.3, -11], 0.8, False, 40),
+                      ('front 3/4', [0, 0, -3], [-6, 1.5, -9], 0.8, False, 40), ('side', [0, 0, -2], [9, 0.3, -1], 0.8, False, 40)]
 # close-ups of the first radar and the first IR store ('S0' / 'S1' targets are filled in from the aircraft)
 VIEWS['close'] = [('radar missile side', 'R', [2.6, -0.5, 0.3], 0.5, False, 40), ('radar missile 3/4 front', 'R', [1.6, -1.0, -2.6], 0.5, False, 40),
                   ('IR missile side', 'I', [2.0, -0.4, 0.2], 0.5, False, 40), ('IR missile 3/4 rear', 'I', [1.4, -0.8, 2.2], 0.5, False, 40)]

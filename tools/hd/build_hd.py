@@ -211,8 +211,16 @@ def build(name):
             pivot = [float(np.sign(P[:, 0].mean()) * x_in), float(root[:, 1].mean()), float(zf + 0.35 * (zb - zf))]
             axis = [1.0, 0.0, 0.0]
         elif kind == 'prop':
-            # spins about the fore-aft axis through the hub; also gives the blur disc (blade plane, radius)
-            cxy = [(P[:, 0].min() + P[:, 0].max()) / 2, (P[:, 1].min() + P[:, 1].max()) / 2]
+            # spins about the fore-aft axis through the hub; also gives the blur disc (blade plane, radius).
+            # The axis comes from the spinner cone just behind its tip (a cross-section there is a circle);
+            # the bounding box of the blades is NOT centred on the hub for an odd number of blades.
+            z0 = P[:, 2].min(); best = None
+            for dz in (0.08, 0.12, 0.16, 0.2, 0.25):
+                sl = P[(P[:, 2] > z0 + dz - 0.03) & (P[:, 2] < z0 + dz + 0.03)]
+                if len(sl) >= 8 and (best is None or len(sl) > len(best)):
+                    best = sl
+            src = best if best is not None else P
+            cxy = [(src[:, 0].min() + src[:, 0].max()) / 2, (src[:, 1].min() + src[:, 1].max()) / 2]
             rr = np.hypot(P[:, 0] - cxy[0], P[:, 1] - cxy[1]); rmax = float(rr.max())
             zb = float(np.median(P[rr > 0.5 * rmax, 2]))
             pivot = [0.0, float(cxy[1]), zb]; axis = [0.0, 0.0, 1.0]
