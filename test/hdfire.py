@@ -1,6 +1,9 @@
 """Fire some missiles and check that the matching ones disappear from the model."""
 import asyncio, sys
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['m2000', 'f16']
 async def main():
@@ -20,7 +23,7 @@ async def main():
                 R.cam.pos.copy(v); R.cam.fov = 45 * Math.PI / 180; R.cam.near = 0.5; R.cam.far = 70000; R.cam.ox = 0; R.cam.oy = 0;
                 R.cam.q.lookDir(new d.V3().subV(me.pos, v).norm(), new d.V3(0, 1, 0).rot(me.q)); C.pos.copy(v); C.q.copy(R.cam.q); }; }''')
             await pg.wait_for_timeout(800)
-            await pg.screenshot(path=f'/home/claude/dogfight/test/shots/fire_{id}_0.png')
+            await pg.screenshot(path=f'{SHOTS}/fire_{id}_0.png')
             # fire two radar and one IR missile (no target: they fly straight)
             r = await pg.evaluate('''() => { const d = window.__df, me = d.Game.me, out = [];
               me.wsel = 'rad'; for (let i = 0; i < 2; i++) { me.mslCd = 0; const m = d.W.fire(me, performance.now()); out.push(m && m.pos.toArray ? m.pos.toArray() : (m ? [m.pos.x, m.pos.y, m.pos.z] : null)); }
@@ -29,9 +32,9 @@ async def main():
               return { left: [me.mR, me.mI], launchRel: rel, look: [me.look.firedR, me.look.firedI] }; }''')
             print(id, r)
             await pg.wait_for_timeout(120)
-            await pg.screenshot(path=f'/home/claude/dogfight/test/shots/fire_{id}_1.png')
+            await pg.screenshot(path=f'{SHOTS}/fire_{id}_1.png')
             await pg.wait_for_timeout(1500)
-            await pg.screenshot(path=f'/home/claude/dogfight/test/shots/fire_{id}_2.png')
+            await pg.screenshot(path=f'{SHOTS}/fire_{id}_2.png')
             await pg.evaluate("() => { const d = window.__df; d.CAM.update = d.CAM._u; d.UI.leave(); }")
         await b.close()
 asyncio.run(main())

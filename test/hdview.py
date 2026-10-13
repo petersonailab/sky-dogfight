@@ -4,6 +4,9 @@ python3 test/hdview.py <preset> id1 id2 ...   presets: stores | flames | prop | 
 import asyncio, sys
 from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 PRESET = sys.argv[1] if len(sys.argv) > 1 else 'stores'
 IDS = sys.argv[2:] or ['f16']
@@ -65,7 +68,7 @@ async def main():
                                           " return it ? [it.M[12], it.M[13], it.M[14]] : [0, -0.6, 0]; }", t)
                 await pg.evaluate("([t, o, thr, ab, fov]) => { window.__view = { t, o, fov }; window.__thr = thr; window.__ab = ab; }", [t, o, thr, ab, fov])
                 await pg.wait_for_timeout(700)
-                f = f'/home/claude/dogfight/test/shots/_v_{id}_{len(shots)}.png'
+                f = f'{SHOTS}/_v_{id}_{len(shots)}.png'
                 await pg.screenshot(path=f)
                 shots.append((name, f))
             cw, ch = W // 2, H // 2
@@ -74,7 +77,7 @@ async def main():
                 im = Image.open(f).resize((cw, ch))
                 ImageDraw.Draw(im).text((8, 6), f'{id} {name}', fill=(255, 255, 0))
                 sheet.paste(im, ((i % 2) * cw, (i // 2) * ch))
-            sheet.save(f'/home/claude/dogfight/test/shots/view_{PRESET}_{id}.png')
+            sheet.save(f'{SHOTS}/view_{PRESET}_{id}.png')
             print(id, st, len(shots), 'shots')
             await pg.evaluate("() => { window.__df.UI.leave(); }")
             await pg.wait_for_timeout(300)

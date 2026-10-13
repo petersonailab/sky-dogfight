@@ -3,6 +3,9 @@ usage: python3 test/webmp.py [p2p|relay] [third]
 """
 import asyncio, json, subprocess, sys, time, urllib.request
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 
 MODE = sys.argv[1] if len(sys.argv) > 1 else 'p2p'
 THIRD = len(sys.argv) > 2 and sys.argv[2] == 'third'
@@ -160,7 +163,7 @@ async def main():
             print(f'A dropped Bravo after {time.time() - t2:.2f}s ({ok})')
             for port in (9101, 9102):
                 s = broker_stats(port); print('broker', port, {k: s[k] for k in ('clients', 'connects', 'pubs', 'delivered', 'bytesIn', 'bytesOut')}, s['topics'])
-            await A.screenshot(path='/home/claude/dogfight/test/shots/web_A.png')
+            await A.screenshot(path=f'{SHOTS}/web_A.png')
             await b.close()
     finally:
         for p in procs: p.terminate()

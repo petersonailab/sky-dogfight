@@ -4,6 +4,9 @@ python3 test/hdsurf2.py f16 f22 ...  ->  test/shots/cs_<id>.png"""
 import asyncio, sys, json
 from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21']
 W, H = 1000, 640
@@ -69,7 +72,7 @@ async def main():
                 for tag, pose in pairs:
                     await pg.evaluate("([v, pose]) => { window.__view = v; window.__pose = pose; window.__sweep = v.sweep === undefined ? null : v.sweep; }", [v, pose])
                     await pg.wait_for_timeout(600)
-                    f = f'/home/claude/dogfight/test/shots/_c_{id}_{len(shots)}.png'
+                    f = f'{SHOTS}/_c_{id}_{len(shots)}.png'
                     await pg.screenshot(path=f)
                     shots.append((v['name'] if 'sweep' in v else v['name'] + (' [NEUTRAL]' if tag else ' [DEFLECTED]'), f))
             if not shots:
@@ -81,7 +84,7 @@ async def main():
                 im = Image.open(f).resize((cw, ch))
                 ImageDraw.Draw(im).text((8, 6), f'{id} {name}', fill=(255, 255, 0))
                 sheet.paste(im, ((i % cols) * cw, (i // cols) * ch))
-            sheet.save(f'/home/claude/dogfight/test/shots/cs_{id}.png')
+            sheet.save(f'{SHOTS}/cs_{id}.png')
             print(id, st, len(shots), 'shots')
             await pg.evaluate("() => { const d = window.__df; d.UI.leave(); }")
             await pg.wait_for_timeout(300)

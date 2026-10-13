@@ -4,6 +4,9 @@ F-14 also gets a top view with the wings spread (20 deg) and swept (68 deg)."""
 import asyncio, sys
 from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21']
 POSES = [('neutral', [0, 0, 0, 140]), ('pitch up', [1, 0, 0, 140]), ('roll right', [0, 1, 0, 140]), ('yaw right', [0, 0, 1, 140])]
@@ -40,7 +43,7 @@ async def main():
                                   " const hp = U.hangarPlane; if (hp && hp.def.id === 'f14') hp.sweep = Math.max(20, Math.min(68, 20 + 48 * (o[3] - 150) / 170)); }",
                                   [o, yaw, pitch])
                 await pg.wait_for_timeout(700)
-                f = f'/home/claude/dogfight/test/shots/_s_{id}_{len(shots)}.png'
+                f = f'{SHOTS}/_s_{id}_{len(shots)}.png'
                 await pg.screenshot(path=f, clip=CLIP)
                 shots.append((name, f))
             cols = 2
@@ -52,7 +55,7 @@ async def main():
                 im = Image.open(f).crop(CROP)
                 ImageDraw.Draw(im).text((8, 6), f'{id} {name}', fill=(255, 255, 0))
                 sheet.paste(im, ((i % cols) * W, (i // cols) * H))
-            sheet.save(f'/home/claude/dogfight/test/shots/surf_{id}.png')
+            sheet.save(f'{SHOTS}/surf_{id}.png')
             print(id, st, len(shots), 'shots')
         for l in logs[:20]: print(l)
         await b.close()

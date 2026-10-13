@@ -1,4 +1,7 @@
 import asyncio, json, sys
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 NOJOIN = len(sys.argv) > 1 and sys.argv[1] == 'nojoin'
 from playwright.async_api import async_playwright
 ARGS = ["--use-angle=swiftshader","--enable-unsafe-swiftshader","--ignore-gpu-blocklist","--use-gl=angle"]
@@ -77,7 +80,7 @@ async def main():
         await A.wait_for_timeout(2500)
         sa = await A.evaluate(STATE)
         print('A after B left:', [(x['name'], x['local']) for x in sa['planes']])
-        await A.screenshot(path='/home/claude/dogfight/test/shots/mp_A.png')
+        await A.screenshot(path=f'{SHOTS}/mp_A.png')
         for e in errs[:12]: print('ERR', e)
         await b.close()
 asyncio.run(main())

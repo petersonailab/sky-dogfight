@@ -1,5 +1,8 @@
 import asyncio, sys
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader","--enable-unsafe-swiftshader","--ignore-gpu-blocklist","--use-gl=angle"]
 async def main():
     w = int(sys.argv[1]) if len(sys.argv) > 1 else 1440
@@ -14,7 +17,7 @@ async def main():
         pg.on('pageerror', lambda e: logs.append('PAGEERROR: ' + str(e)))
         await pg.goto('http://127.0.0.1:8765/test/game.html')
         await pg.wait_for_timeout(2500)
-        await pg.screenshot(path=f'/home/claude/dogfight/test/shots/{out}.png')
+        await pg.screenshot(path=f'{SHOTS}/{out}.png')
         for l in logs[:30]: print(l)
         await b.close()
 asyncio.run(main())

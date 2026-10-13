@@ -3,6 +3,9 @@ python3 test/mslfly.py f16 su27 ...  -> test/shots/mslfly_<id>.png"""
 import asyncio, sys
 from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['f16']
 W, H = 900, 560
@@ -36,13 +39,13 @@ async def main():
                 for t, off in ((450, [4.5, 1.2, 1.5]), (1300, [3.0, 0.8, 6.0])):
                     await pg.evaluate("(o) => { window.__off = o; }", off)
                     await pg.wait_for_timeout(t if t < 1000 else 500)
-                    f = f'/home/claude/dogfight/test/shots/_mf_{id}_{len(shots)}.png'
+                    f = f'{SHOTS}/_mf_{id}_{len(shots)}.png'
                     await pg.screenshot(path=f); shots.append((f'{w} {t}ms', f))
             sheet = Image.new('RGB', (W, H), (0, 0, 0))
             for i, (n, f) in enumerate(shots):
                 im = Image.open(f).resize((W // 2, H // 2)); ImageDraw.Draw(im).text((6, 6), f'{id} {n}', fill=(255, 255, 0))
                 sheet.paste(im, ((i % 2) * W // 2, (i // 2) * H // 2))
-            sheet.save(f'/home/claude/dogfight/test/shots/mslfly_{id}.png')
+            sheet.save(f'{SHOTS}/mslfly_{id}.png')
             print(id, 'ok')
             await pg.evaluate("() => { window.__df.UI.leave(); }")
         print(errs[:5])

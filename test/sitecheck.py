@@ -1,6 +1,9 @@
 """Load the GitHub Pages build (index.html) the way a visitor would and check the menu, networking status and a practice flight."""
 import asyncio, subprocess, sys
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 
 async def main():
@@ -22,11 +25,11 @@ async def main():
                     await pg.wait_for_timeout(9000)
                     print('   note @10.5s:', await pg.text_content('#netNote'), '| go disabled:', await pg.is_disabled('#goBtn'))
                     await pg.click('#tabPractice'); await pg.click('#goBtn'); await pg.wait_for_timeout(2500)
-                    await pg.screenshot(path='/home/claude/dogfight/test/shots/site_practice.png')
+                    await pg.screenshot(path=f'{SHOTS}/site_practice.png')
                     print('   practice running:', await pg.is_visible('#ingame'), '| info:', await pg.text_content('#roundInfo'))
                 else:
                     print('   code field:', await pg.input_value('#codeIn'))
-                    await pg.screenshot(path='/home/claude/dogfight/test/shots/site_menu.png')
+                    await pg.screenshot(path=f'{SHOTS}/site_menu.png')
                 for e in errs[:10]: print('   ERR', e)
                 await ctx.close()
             await b.close()

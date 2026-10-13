@@ -2,6 +2,9 @@
 python3 test/hdflight.py f16 su27 ..."""
 import asyncio, sys
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['f16']
 # camera offsets in the aircraft's own frame (x right, y up, z back), looking at the aircraft
@@ -33,7 +36,7 @@ async def main():
                       C.update = function () { const me = d.Game.me, R = d.R; const v = new d.V3(o[0], o[1], o[2]).rot(me.q).add(me.pos);
                         R.cam.pos.copy(v); R.cam.fov = 40 * Math.PI / 180; R.cam.near = 0.5; R.cam.far = 70000; R.cam.ox = 0; R.cam.oy = 0; R.cam.q.lookDir(new d.V3().subV(me.pos, v).norm(), new d.V3(0, 1, 0).rot(me.q)); C.pos.copy(v); C.q.copy(R.cam.q); }; }''', list(off))
                 await pg.wait_for_timeout(400)
-                await pg.screenshot(path=f'/home/claude/dogfight/test/shots/fl_{id}_{name}.png')
+                await pg.screenshot(path=f'{SHOTS}/fl_{id}_{name}.png')
             await pg.evaluate("() => { const d = window.__df; if (d.CAM._u) d.CAM.update = d.CAM._u; d.UI.leave(); }")
             await pg.wait_for_timeout(300)
         for e in errs[:10]: print(e)

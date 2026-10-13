@@ -1,5 +1,8 @@
 import asyncio, sys, json
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader","--enable-unsafe-swiftshader","--ignore-gpu-blocklist","--use-gl=angle"]
 async def main():
     w, h = 1280, 760
@@ -18,7 +21,7 @@ async def main():
         await pg.mouse.move(w/2, h*0.47)
         for i in range(4):
             await pg.wait_for_timeout(1500)
-            await pg.screenshot(path=f'/home/claude/dogfight/test/shots/flight_{i}.png')
+            await pg.screenshot(path=f'{SHOTS}/flight_{i}.png')
         info = await pg.evaluate('''() => { const d = window.__df, G = d.Game, me = G.me;
           return { planes: G.planes.length, me: [me.pos.x|0, me.pos.y|0, me.pos.z|0], spd: me.speed|0, alive: me.alive, hp: me.hp,
                    bots: G.planes.filter(p=>p.bot).map(p => [p.name, p.def.id, p.alive, p.pos.y|0, p.speed|0]), fx: d.FX.n, bullets: d.W.bullets.length, msl: d.W.missiles.length }; }''')

@@ -1,5 +1,5 @@
 """Quick orthographic previews (painter's algorithm, centroid texture colour) of a GLB scene."""
-import sys, io
+import sys, io, os
 import numpy as np
 import cv2
 from PIL import Image
@@ -93,4 +93,4 @@ def preview(path, out, size=420, prims_filter=None):
 if __name__ == '__main__':
     for p in sys.argv[1:]:
         name = p.split('/')[-1].replace('.glb', '')
-        preview(p, f'/home/claude/models/prev_{name}.png')
+        preview(p, os.path.join(os.path.dirname(os.path.abspath(__file__)), f'prev_{name}.png'))

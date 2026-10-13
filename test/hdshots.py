@@ -1,6 +1,9 @@
 """Hangar screenshots of the hi-detail models from a few angles: python3 test/hdshots.py f16 su27 ..."""
 import asyncio, sys, json
 from playwright.async_api import async_playwright
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['f16']
 ANGLES = [(-0.7, 0.32), (2.3, 0.32), (3.9, 0.15), (0.9, -0.35)]
@@ -29,7 +32,7 @@ async def main():
             for k, (yaw, pitch) in enumerate(ANGLES):
                 await pg.evaluate("([y, p]) => { const U = window.__df.UI; U.yaw = y; U.pitchOverride = p; }", [yaw, pitch])
                 await pg.wait_for_timeout(250)
-                await pg.screenshot(path=f'/home/claude/dogfight/test/shots/hd_{id}_{k}.png', clip={'x': 400, 'y': 60, 'width': 700, 'height': 560})
+                await pg.screenshot(path=f'{SHOTS}/hd_{id}_{k}.png', clip={'x': 400, 'y': 60, 'width': 700, 'height': 560})
         for l in logs[:20]: print(l)
         await b.close()
 

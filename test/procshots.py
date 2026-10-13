@@ -3,6 +3,9 @@ python3 test/procshots.py idf zero ...  -> test/shots/proc_<id>.png"""
 import asyncio, sys
 from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw
+import os as _os
+HERE = _os.path.dirname(_os.path.abspath(__file__))
+SHOTS = _os.path.join(HERE, 'shots'); _os.makedirs(SHOTS, exist_ok=True)  # screenshots go next to the tests
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--use-gl=angle"]
 IDS = sys.argv[1:] or ['idf']
 W, H = 1000, 700
@@ -33,13 +36,13 @@ async def main():
             for name, o in VIEWS:
                 await pg.evaluate("(o) => { window.__o = o; }", o)
                 await pg.wait_for_timeout(500)
-                f = f'/home/claude/dogfight/test/shots/_p_{id}_{len(shots)}.png'
+                f = f'{SHOTS}/_p_{id}_{len(shots)}.png'
                 await pg.screenshot(path=f); shots.append((name, f))
             sheet = Image.new('RGB', (W, H), (0, 0, 0))
             for i, (n, f) in enumerate(shots):
                 im = Image.open(f).resize((W // 2, H // 2)); ImageDraw.Draw(im).text((6, 6), f'{id} {n}', fill=(255, 255, 0))
                 sheet.paste(im, ((i % 2) * W // 2, (i // 2) * H // 2))
-            sheet.save(f'/home/claude/dogfight/test/shots/proc_{id}.png')
+            sheet.save(f'{SHOTS}/proc_{id}.png')
             await pg.evaluate("() => window.__df.UI.leave()")
         print(errs[:5])
         await b.close()
