@@ -110,35 +110,55 @@ const AC_DEFS = [
   {
     id: 'f15', era: 'jet', name: 'F-15E 打擊鷹', en: 'F-15E STRIKE EAGLE', country: '美國', first: 1986, len: 19.43, span: 13.05,
     gun: 'M61A1 20 mm 機砲（加特林）', note: '雙座雙發重型戰機，機身兩側貼著保形油箱。極速 1,552 km/h 全場最快、生命值 296；加特林機砲要先轉 0.8 秒才全速，射速每秒 60 發。',
-    paint: { pattern: 0, top: '#5d6266', bot: '#666b6f', c2: '#5d6266', c3: '#5d6266', scale: 0.3, rad: '#55595c', radZ: 1.9, glass: '#2f3b46', metal: 0.08, gloss: 0.34 },
+    // gunship grey like the hi-detail textures
+    paint: { pattern: 0, top: '#7b7d82', bot: '#7f8085', c2: '#7b7d82', c3: '#7b7d82', scale: 0.3, rad: '#76777b', radZ: 1.9, glass: '#2f3b46', metal: 0.08, gloss: 0.34 },
     // M61A1: 60 rounds/s, 511 damage/s, spins up in 0.8 s; overheats after 5.98 s of fire, cools 16 %/s, 6.25 s to recover
     st: { hp: 296, vab: 1552, vmax: 987, vtab: 797, vt: 513, vc: 882, vr: 216, vs: 288, vcl: 620, aab: 49, acc: 30, wb: 36, wh: 15, roll: 190, resp: 6,
       abFuel: 18.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
       gunRate: 60, gunDmg: 511 / 60 / 1.35, bullet: 1550, spread: 1.0, spin: 0.8, heat: { t: 5.98, cool: 0.16, lock: 6.25 } },
     loadout: [['aim7', 6], ['aim9m15', 4]],
     build(a) {
+      // after the hi-detail model: long nose and two-seat canopy with a hump behind it, box intakes with the ramp
+      // forward, flat-bottomed conformal tanks out to the wing roots, engines side by side, tail booms carrying the
+      // twin fins and the dog-toothed stabilators, cropped-delta wing with 45° leading edge
       a.body([
-        { z: 0, w: 0.03, h: 0.03, y: 0.02 }, { z: 0.8, w: 0.28, h: 0.3, y: 0.04 }, { z: 2.2, w: 0.52, h: 0.58, y: 0.08 },
-        { z: 3.8, w: 0.66, h: 0.74, hb: 0.6, y: 0.12 }, { z: 5.6, w: 0.74, h: 0.78, hb: 0.6, y: 0.1, n: 2.4 }, { z: 7.6, w: 1.1, h: 0.62, hb: 0.6, n: 2.6 },
-        { z: 10.5, w: 1.32, h: 0.5, hb: 0.52, n: 3 }, { z: 14.5, w: 1.28, h: 0.46, hb: 0.46, n: 3 }, { z: 17.4, w: 1.12, h: 0.42, hb: 0.42, n: 3 }, { z: 18.4, w: 1.02, h: 0.4, hb: 0.4, n: 3 },
+        { z: 0, w: 0.03, h: 0.03, y: -0.33 }, { z: 0.6, w: 0.24, h: 0.24, y: -0.28 }, { z: 1.1, w: 0.36, h: 0.36, y: -0.235 },
+        { z: 1.6, w: 0.46, h: 0.47, y: -0.18 }, { z: 2.1, w: 0.53, h: 0.55, y: -0.125 }, { z: 2.6, w: 0.59, h: 0.62, y: -0.055 },
+        { z: 3.1, w: 0.62, h: 0.66, hb: 0.68, y: 0.02 }, { z: 5.1, w: 0.61, h: 0.7, hb: 0.69, y: 0.02, n: 2.2 }, { z: 7.6, w: 0.6, h: 0.8, hb: 0.81, y: 0.1, n: 2.4 },
+        { z: 9.6, w: 0.6, h: 0.38, hb: 0.79, y: 0.07, n: 2.6 }, { z: 12.6, w: 0.6, h: 0.42, hb: 0.79, y: -0.05, n: 2.6 }, { z: 15.1, w: 0.55, h: 0.4, hb: 0.72, y: -0.1, n: 2.4 },
+        { z: 16.6, w: 0.32, h: 0.2, hb: 0.42, y: -0.1 }, { z: 17.3, w: 0.08, h: 0.06, y: -0.05 },
       ]);
+      a.loft([{ z: 6.9, w: 0.42, h: 0.4, y: 0.9 }, { z: 7.6, w: 0.36, h: 0.36, y: 0.8 }, { z: 8.6, w: 0.3, h: 0.27, y: 0.7 }, { z: 9.6, w: 0.24, h: 0.2, y: 0.6 },
+        { z: 10.2, w: 0.14, h: 0.06, y: 0.42 }], { seg: 14 });
       for (const s of [1, -1]) {
-        // square intakes beside the cockpit, conformal tanks along the sides
-        a.loft([{ z: 5.5, w: 0.44, h: 0.66, y: -0.1, n: 6 }, { z: 7.4, w: 0.5, h: 0.66, y: -0.1, n: 5 }, { z: 11.0, w: 0.56, h: 0.56, y: -0.08, n: 3 }], { x: 1.22 * s, cap0: false, seg: 14 });
-        a.face([1.22 * s, -0.1, 5.58], 0.4, 0.6, 6);
-        a.loft([{ z: 7.8, w: 0.06, h: 0.2, y: -0.15 }, { z: 9.0, w: 0.34, h: 0.36, y: -0.15, n: 3 }, { z: 14.0, w: 0.36, h: 0.34, y: -0.12, n: 3 }, { z: 15.6, w: 0.08, h: 0.12, y: -0.1 }], { x: 1.62 * s, seg: 12 });
-        a.nozzle(0.66 * s, 0.0, 18.3, 0.56, 0.52, 1.0);
+        const side = st => st.map(p => Object.assign({}, p, { x: p.x * s }));
+        // box intake trunks merging into the conformal tanks, then the tail booms
+        a.loft(side([{ z: 6.1, x: 1.07, w: 0.45, h: 0.3, y: 0.3, n: 6 }, { z: 6.8, x: 1.1, w: 0.48, h: 0.56, y: 0.06, n: 6 }, { z: 7.6, x: 1.17, w: 0.55, h: 0.74, y: -0.11, n: 6 }, { z: 9.1, x: 1.32, w: 0.7, h: 0.68, y: -0.17, n: 6 },
+          { z: 12.1, x: 1.32, w: 0.7, h: 0.61, y: -0.25, n: 6 }, { z: 15.1, x: 1.32, w: 0.7, h: 0.58, y: -0.26, n: 5 }, { z: 16.1, x: 1.42, w: 0.53, h: 0.47, y: -0.23, n: 4 },
+          { z: 16.9, x: 1.72, w: 0.2, h: 0.24, y: -0.2, n: 4 }, { z: 19.0, x: 1.78, w: 0.13, h: 0.14, y: -0.2, n: 4 }]), { cap0: false, seg: 16 });
+        a.face([1.07 * s, 0.3, 6.18], 0.41, 0.26, 6);
+        a.b.box([1.07 * s, 0.6, 5.95], 0.9, 0.05, 0.5);   // intake ramp, ahead of the raked opening
+        // engines and nozzles
+        a.loft(side([{ z: 10.6, x: 0.58, w: 0.55, h: 0.55, y: -0.25 }, { z: 14.6, x: 0.6, w: 0.62, h: 0.62, y: -0.19 }, { z: 16.1, x: 0.65, w: 0.57, h: 0.57, y: -0.09 },
+          { z: 17.1, x: 0.709, w: 0.47, h: 0.47, y: -0.118 }]), { seg: 18 });
+        a.nozzle(0.709 * s, -0.118, 17.1, 0.47, 0.37, 0.667);
+        // wing pylon with its side rails, fin-tip pod
+        a.b.box([2.8 * s, -0.12, 11.77], 0.12, 0.62, 3.26); a.b.box([2.8 * s, -0.12, 11.06], 0.72, 0.07, 1.42);
+        a.mat(MAT.ACCENT); a.b.cyl([1.7 * s, 3.38, 16.77], [1.7 * s, 3.38, 18.37], 0.045, 0.04, { seg: 8, cap0: true, cap1: true }); a.mat(MAT.PAINT);
       }
-      a.wing([[1.5, 8.2, 15.2, 0.4], [6.5, 12.9, 14.9, 0.1]], { y: 0.12, dih: -1 });
-      const sR = a.bone('stab', [2.4, 0.0, 17.6], [1, 0, 0], 1), sL = a.bone('stab', [-2.4, 0.0, 17.6], [1, 0, 0], -1);
-      a.wing([[1.55, 16.4, 19.2, 0.16], [4.35, 18.2, 19.4, 0.06]], { y: 0.0, bones: [sR, sL] });
-      a.fin([[0, 14.6, 18.2, 0.22], [3.05, 16.9, 18.3, 0.08]], { x: 1.45, y: 0.36, cant: 2, twin: true, accentFrom: 2.4 });
-      a.canopy(4.6, 0.66, 0.46, 0.55, 2.4);
-      a.gun(1.75, 0.15, 8.6);
-      a.missile(-1.75, -0.6, 8.6, 'rad'); a.missile(1.75, -0.6, 8.6, 'rad'); a.missile(-1.75, -0.6, 12.4, 'rad'); a.missile(1.75, -0.6, 12.4, 'rad');
-      a.missile(-3.4, -0.78, 10.6, 'rad', true); a.missile(3.4, -0.78, 10.6, 'rad', true);
-      a.missile(-3.05, -0.42, 10.9, 'ir', true); a.missile(3.05, -0.42, 10.9, 'ir', true); a.missile(-3.75, -0.42, 10.9, 'ir', true); a.missile(3.75, -0.42, 10.9, 'ir', true);
-      a.tip(6.5, 0.12, 14.8); a.tip(-6.5, 0.12, 14.8);
+      a.wing([[1.7, 8.55, 14.98, 0.14], [4.0, 11.22, 14.94, 0.1], [5.6, 12.82, 15.3, 0.08], [6.2, 13.42, 14.69, 0.07], [6.52, 13.81, 14.2, 0.05]], { y: 0.25, dih: -0.7 });
+      const sR = a.bone('stab', [1.84, -0.223, 17.1], [1, 0, 0], 1), sL = a.bone('stab', [-1.84, -0.223, 17.1], [1, 0, 0], -1);
+      a.wing([[1.84, 16.08, 19.02, 0.1], [2.74, 17.06, 19.17, 0.08], [2.76, 16.64, 19.18, 0.08], [3.87, 17.97, 19.43, 0.06], [4.2, 18.33, 18.98, 0.05], [4.31, 18.6, 18.8, 0.04]],
+        { y: -0.223, bones: [sR, sL] });
+      a.fin([[0, 15.13, 18.04, 0.2], [3.15, 17.4, 18.22, 0.07]], { x: 1.86, y: 0.2, cant: -2.8, twin: true, accentFrom: 2.72 });
+      a.canopy(5.7, 0.92, 0.52, 0.61, 2.1);
+      a.gun(1.95, 0.4, 8.4);   // M61A1 in the right wing root
+      // same launch points as the hi-detail model: AIM-7 on the conformal tanks (front, rear) and under the wing pylons,
+      // AIM-9 beside the pylons' rails (outer pair first)
+      a.missile(-1.5, -0.957, 7.479, 'rad'); a.missile(1.5, -0.957, 7.479, 'rad'); a.missile(-1.5, -0.984, 11.679, 'rad'); a.missile(1.5, -0.984, 11.679, 'rad');
+      a.missile(-2.8, -0.531, 9.679, 'rad'); a.missile(2.8, -0.531, 9.679, 'rad');
+      a.missile(-3.19, -0.12, 9.399, 'ir'); a.missile(3.19, -0.12, 9.399, 'ir'); a.missile(-2.41, -0.12, 9.399, 'ir'); a.missile(2.41, -0.12, 9.399, 'ir');
+      a.tip(6.52, 0.19, 14.0); a.tip(-6.52, 0.19, 14.0);
     },
   },
   {
