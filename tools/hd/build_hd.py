@@ -39,14 +39,15 @@ CFG = {
                 internal=dict(rad=[[-0.25, -0.65, -1.2], [0.25, -0.65, -1.2], [-0.52, -0.65, -1.2], [0.52, -0.65, -1.2], [-0.79, -0.65, -1.2], [0.79, -0.65, -1.2]],
                               ir=[[-1.32, -0.58, -2.1], [1.32, -0.58, -2.1]]),
                 # flat 2-D nozzles (1.0 x 0.26 m openings): the glow sits just inside the flaps, which hide the round disc's overflow
+                # (the round plume, at least 0.3 m in radius when drawn, is still taller than the opening)
                 flames=[{'p': [0.7, 0.125, 6.55], 'r': 0.24}, {'p': [-0.7, 0.125, 6.55], 'r': 0.24}],
                 # control surfaces are cut out of the one-piece airframe by triangle centroids: stabilators behind their leading
-                # edge (|x| 2.03..4.55, plus the thin leading-edge faces below the wing trailing edge they touch at the root),
-                # rudders = the aft wedge of each 20-triangle fin, ailerons = the outer trailing-edge panels behind the z 4.0 panel line
+                # edge (|x| 1.99..4.55, plus the thin leading-edge faces below the wing trailing edge they touch at the root),
+                # rudders = the aft wedge of each 20-triangle fin, hinged halfway between its two skins. No ailerons: the wing
+                # has no mesh edges along the painted aileron (its few large triangles also cover the clipped tip)
                 bones=[dict(kind='stab', side=s, xsign=s, tbox=[dict(x=(1.99, 4.65), y=(-0.5, 0.38), poly=[(1.99, 5.23), (4.65, 7.53), (4.65, 9.3), (1.99, 9.3)]),
                                                                  dict(x=(1.99, 4.65), y=(-0.5, 0.3), poly=[(1.99, 5.12), (4.65, 7.42), (4.65, 7.53), (1.99, 5.23)])]) for s in (-1, 1)]
-                     + [dict(kind='ail', side=s, xsign=s, tbox=dict(x=(5.4, 6.9), y=(-0.3, 0.3), poly=[(5.4, 3.995), (6.9, 3.975), (6.9, 5.1), (5.4, 5.1)])) for s in (-1, 1)]
-                     + [dict(kind='rud', side=s, xsign=s, tbox=dict(y=(0.6, 3.3), poly=[(1.2, 6.513), (3.1, 5.303), (3.1, 7.6), (1.2, 7.6)])) for s in (-1, 1)]),
+                     + [dict(kind='rud', side=s, xsign=s, mid=True, tbox=dict(y=(0.6, 3.3), poly=[(1.2, 6.513), (3.1, 5.303), (3.1, 7.6), (1.2, 7.6)])) for s in (-1, 1)]),
     'f14': dict(yaw=244, tex=1024, credit=dict(title='F14', author='manilov.ap', license='CC BY 4.0',
                                                url='https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af'),
                 rm_node=r'^(Torus\d+|Cylinder(48|50|51|54|55|56|58|60|61|63|64|65|66|67)|Box(09|10|60|61|64|65|66|67|68)|Line03|Object09)-FACES',
@@ -280,6 +281,9 @@ def build(name):
             y0, y1 = P[:, 1].min(), P[:, 1].max(); h = y1 - y0
             bot = P[P[:, 1] <= y0 + 0.15 * h]; top = P[P[:, 1] >= y1 - 0.15 * h]
             A = bot[np.argmin(bot[:, 2])]; B = top[np.argmin(top[:, 2])]
+            if bc.get('mid'):   # wedge cut out of a closed fin: hinge halfway between the front edges of its two skins
+                fa = bot[bot[:, 2] < A[2] + 0.02]; fb = top[top[:, 2] < B[2] + 0.02]
+                A = (fa.min(0) + fa.max(0)) / 2; B = (fb.min(0) + fb.max(0)) / 2
             d = B - A; d /= np.linalg.norm(d)
             if d[1] < 0: d = -d
             pivot = [float(v) for v in A]; axis = [float(v) for v in d]
