@@ -187,8 +187,9 @@ void main(){ vec3 d = normalize(vDir); vec3 c = skyCol(d); float s = max(dot(d, 
   gl_FragColor = vec4(c, 1.0); }`,
   },
   water: {
-    vs: `attribute vec2 aPos; uniform mat4 uVP; uniform vec3 uCam; varying vec3 vW;
-void main(){ vec3 w = vec3(aPos.x + uCam.x, 0.0, aPos.y + uCam.z); vW = w; gl_Position = uVP * vec4(w, 1.0); }`,
+    // the camera has its own name here: a uniform shared with a mediump fragment shader would not link on such GPUs
+    vs: `attribute vec2 aPos; uniform mat4 uVP; uniform vec3 uCamV; varying vec3 vW;
+void main(){ vec3 w = vec3(aPos.x + uCamV.x, 0.0, aPos.y + uCamV.z); vW = w; gl_Position = uVP * vec4(w, 1.0); }`,
     fs: GLSL_FRAG_HEAD + GLSL_ENV + `varying vec3 vW; uniform float uTime; uniform vec3 uDeep;
 void main(){
   vec3 p = vW; float dist = length(p - uCam); vec2 q = p.xz;
@@ -225,14 +226,33 @@ varying vec4 vC; varying vec2 vUV; void main(){ vC = aCol; vUV = aUV; gl_Positio
     fs: GLSL_FRAG_HEAD + `varying vec4 vC; varying vec2 vUV;
 void main(){ float e = abs(vUV.y); float a = vC.a * (1.0 - smoothstep(0.2, 1.0, e)) * mix(0.2, 1.0, vUV.x); vec3 c = mix(vC.rgb, vec3(1.0, 0.97, 0.9), 1.0 - smoothstep(0.0, 0.45, e)); gl_FragColor = vec4(c * a, a * 0.55); }`,
   },
-  // afterburner plume along +z (unit cone), prop blur disc (mode 1) and glowing nozzle disc (mode 2).
-  // Colours per engine family: c0 white-hot core, c1 plume, c2 tail, c3 nozzle ring; shock diamonds along the core.
+  // afterburner plume, prop blur disc (mode 1) and glowing nozzle disc (mode 2).
+  // The plume mesh is only a hull a little wider than the flame (unit length along +z, unit nozzle radius): each pixel
+  // marches its view ray through the glowing gas inside (uSteps <= 6 steps, nozzle frame), so the edges are soft and no
+  // facets show from any side. Layers: envelope (c1, turning c2 downstream), shorter white-hot core (c0) and the shock
+  // diamonds, which are solid bicones lit by their exact chord along the ray (crisp from the side, no stepping artefacts
+  // when seen along the plume). uAB 0..1 = dry heat glow .. full afterburner. c3 = nozzle ring.
+  // The vertex shader works out the view ray (uEye = camera in nozzle radii) and hands it on divided by a per-draw
+  // constant, so a mediump fragment shader only sees small numbers; no uniform is shared between the two shaders.
   flame: {
-    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL; varying vec3 vW; varying vec3 vN;
-void main(){ vL = aPos; vec4 w = uModel * vec4(aPos * uScl, 1.0); vW = w.xyz;
-  vN = normalize((uModel * vec4(aPos.x, aPos.y, 0.0, 0.0)).xyz + vec3(1e-5)); gl_Position = uVP * w; }`,
-    fs: GLSL_FRAG_HEAD + `varying vec3 vL; varying vec3 vW; varying vec3 vN; uniform float uInt; uniform float uMode; uniform float uTime; uniform vec3 uCam;
-uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia;
+    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; uniform vec3 uEye; varying vec3 vL; varying vec4 vR;
+void main(){ vL = aPos; gl_Position = uVP * (uModel * vec4(aPos * uScl, 1.0));
+  float Ln = uScl.z / uScl.x, s = length(uEye - vec3(0.0, 0.0, 0.5 * Ln)) + 1.0;
+  vR = vec4((aPos * vec3(1.0, 1.0, Ln) - uEye) / s, s); }`,
+    fs: GLSL_FRAG_HEAD + `varying vec3 vL; varying vec4 vR; uniform float uInt; uniform float uMode; uniform float uLn; uniform float uSteps; uniform float uIn;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia; uniform float uAB; uniform float uPh;
+// one half of a shock diamond (knot units: radius / 0.62 and (z - middle) / half a cell, so the knot is |r| + |z| <= 1):
+// where the line o + v s crosses the cone |r| = 1 - sg z with 0 <= sg z <= 1, folded into the chord iv
+vec2 knotHalf(vec3 o, vec3 v, float sg, vec2 iv) {
+  float m = 1.0 - sg * o.z, n = sg * v.z;
+  float A = dot(v.xy, v.xy) - n * n, B = dot(o.xy, v.xy) + m * n, C = dot(o.xy, o.xy) - m * m, D = B * B - A * C;
+  if (D < -1e-4) return iv;
+  float q = sqrt(max(D, 0.0));
+  vec2 s = abs(A) > 1e-4 ? vec2(-B - q, -B + q) / A : vec2(-0.5 * C / B), w = m - n * s;
+  if (w.x >= 0.0 && w.x <= 1.0) iv = vec2(min(iv.x, s.x), max(iv.y, s.x));
+  if (w.y >= 0.0 && w.y <= 1.0) iv = vec2(min(iv.x, s.y), max(iv.y, s.y));
+  return iv;
+}
 void main(){
   if (uMode > 1.5) { // nozzle glow seen from behind: white-hot centre, coloured ring
     float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.55, r);
@@ -240,19 +260,53 @@ void main(){
     gl_FragColor = vec4(col * a, a); return; }
   if (uMode > 0.5) { float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.75, r) * smoothstep(0.12, 0.35, r) * (0.75 + 0.25 * sin(r * 40.0));
     gl_FragColor = vec4(vec3(0.32) * a * 0.22, a * 0.22); return; }
-  float z = vL.z;
-  vec3 V = normalize(uCam - vW);
-  float face = abs(dot(normalize(vN), V));            // 1 where we look through the middle of the plume
-  float core = pow(face, 1.6);
-  float cell = fract(z * uDia + 0.35);                 // shock diamonds: bright knots at regular spacing
-  float dia = exp(-pow((cell - 0.5) * 3.2, 2.0)) * (1.0 - smoothstep(0.2, 0.9, z));
-  float hot = core * (1.0 - smoothstep(0.0, 0.3, z));
-  vec3 col = mix(uC1, uC0, clamp(hot * 0.85 + dia * core * 0.85, 0.0, 1.0));
-  col = mix(col, uC2, smoothstep(0.3, 1.0, z) * (1.0 - core * 0.4));
-  float fade = pow(1.0 - z, 1.1);
-  // kept below saturation so the knots still read as brighter bands
-  float a = uInt * fade * (0.3 + 0.7 * core) * (0.5 + 0.95 * dia) * 0.78 * (0.92 + 0.08 * sin(uTime * 61.0 + z * 11.0));
-  gl_FragColor = vec4(col * a, a * 0.55);              // partly 'over' so the colour survives against a bright sky
+  // in nozzle radii from here on: e = where the ray meets the hull (or the eye, uIn), d = its direction
+  float Ln = uLn;
+  vec3 e = vL * vec3(1.0, 1.0, Ln), d = normalize(vR.xyz);
+  if (uIn > 0.5) e -= vR.xyz * vR.w;
+  // the ray leaves the gas through the bounding cylinder or the nozzle / tail planes
+  float a = dot(d.xy, d.xy), b = dot(e.xy, d.xy), c = dot(e.xy, e.xy) - 1.5;
+  float t = a > 1e-6 ? (sqrt(max(b * b - a * c, 0.0)) - b) / a : 1e4;
+  if (d.z > 1e-4) t = min(t, (Ln - e.z) / d.z); else if (d.z < -1e-4) t = min(t, -e.z / d.z);
+  t = max(t, 0.0);
+  float k = t / uSteps;
+  vec3 st = d * k, p = e + st * 0.5;
+  float zc = mix(0.1, 0.4, uAB), hot = mix(0.6, 1.2, uAB), cool = 0.4 - 0.4 * uAB;
+  vec3 E = vec3(0.0); float tau = 0.0;
+  for (int i = 0; i < 6; i++) {
+    if (float(i) >= uSteps) break;
+    float z = clamp(p.z / Ln, 0.0, 1.0), y = 1.0 - z, q2 = dot(p.xy, p.xy);
+    // envelope: bulges a little after the exit, then a long taper; turbulence carried downstream, stronger toward the tail
+    float bz = 1.0 + 0.6 * z * y * y * y;
+    float env = max(1.0 - q2 / (y * (1.0 + 0.8 * z) * bz * bz + 1e-4), 0.0) * y * (1.0 + 0.3 * z * sin(p.z * 1.3 + p.x * 1.7 - uPh));
+    // white-hot core, shorter and narrower
+    float cz = max(1.0 - z / zc, 0.0), cr = max(1.0 - q2 / (0.15 * cz + 0.01), 0.0);
+    float core = cz * cz * cr * cr;
+    E += mix(uC1, uC2, smoothstep(0.1, 0.95, z + cool)) * (env * 1.5) + uC0 * (core * hot);
+    tau += env + core * 0.5;
+    p += st;
+  }
+  E *= k;
+  // shock diamonds (afterburner only): one knot per cell, the first shock 0.1 cell behind the exit; each knot is a
+  // bicone 0.62 nozzle radii wide in the middle and as long as the cell, fading downstream. Short chords (rim, tips)
+  // count less, which keeps the edges soft. Only rays that pass that close to the axis can meet a knot.
+  float dd = dot(d.xy, d.xy), ed = dot(e.xy, d.xy);
+  if (uAB > 0.0 && dot(e.xy, e.xy) - (dd > 1e-6 ? ed * ed / dd : 0.0) < 0.385) {
+    float h = 0.5 * Ln / uDia, g = uAB * uAB * 3.4, z0 = min(e.z, e.z + d.z * t), z1 = max(e.z, e.z + d.z * t);
+    vec3 v = vec3(d.xy / 0.62, d.z / h), dc = mix(uC0, uC1, 0.4);
+    for (int j = 0; j < 3; j++) {   // a fourth knot would be too faint to see
+      float zj = (float(j) + 0.6) / uDia, f = 1.0 - zj / 0.72;
+      if (f <= 0.0) break;
+      if (zj * Ln + h < z0 || zj * Ln - h > z1) continue;   // the ray never gets level with this knot
+      vec3 o = vec3(e.xy / 0.62, (e.z - zj * Ln) / h);
+      vec2 iv = knotHalf(o, v, -1.0, knotHalf(o, v, 1.0, vec2(1e4, -1e4)));
+      float ch = max(min(iv.y, t) - max(iv.x, 0.0), 0.0);
+      E += dc * (ch * ch / (ch + 0.5) * f * f * g);
+    }
+  }
+  // soft saturation: the hottest parts turn white, thin parts keep their colour;
+  // partly 'over' so the plume still reads against a bright sky
+  gl_FragColor = vec4(1.0 - exp(-E * uInt), (1.0 - exp(-tau * (k * uInt * 0.9))) * 0.7);
 }`,
   },
 };
@@ -348,6 +402,7 @@ const R = {
     if (u.uVP) gl.uniformMatrix4fv(u.uVP, false, C.vp);
     if (u.uIVP) gl.uniformMatrix4fv(u.uIVP, false, C.ivp);
     if (u.uCam) gl.uniform3f(u.uCam, C.pos.x, C.pos.y, C.pos.z);
+    if (u.uCamV) gl.uniform3f(u.uCamV, C.pos.x, C.pos.y, C.pos.z);
     if (u.uSunDir) gl.uniform3f(u.uSunDir, E.sun.x, E.sun.y, E.sun.z);
     if (u.uSunCol) gl.uniform3fv(u.uSunCol, E.sunCol);
     if (u.uZen) gl.uniform3fv(u.uZen, E.zen);
@@ -509,17 +564,48 @@ const R = {
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
-  // mode 0: plume (additive), 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }; dia = shock diamonds per plume length
-  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia) {
+  // mode 0: plume, 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }. Plume only: dia = shock diamonds
+  // per plume length, ab = afterburner 0..1, cam = camera position in the model frame (metres), ph = flicker phase.
+  // Front faces only, so every pixel marches through the plume once; when the camera is inside the hull, or so close
+  // that the near plane would cut it, a quad just past the near plane takes its place and the march starts at the eye.
+  // Fewer steps when the plume is small on screen.
+  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia, ab, cam, ph) {
     const gl = this.gl, p = this.use(this.P.flame), u = p.u;
-    gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
+    let inside = false;
+    gl.enable(gl.BLEND); gl.depthMask(false);
     if (mode === 2) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform3f(u.uScl, sx, sy, sz); gl.uniform1f(u.uInt, intensity); gl.uniform1f(u.uMode, mode || 0);
     const P = pal || FLAME_PAL.us;
-    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3); gl.uniform1f(u.uDia, dia || 3);
+    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3);
+    if (!mode) {
+      const ex = cam.x / sx, ey = cam.y / sx, ez = cam.z / sx, Ln = sz / sx;
+      inside = ez > 0 && ez < Ln && Math.hypot(ex, ey) < 1.25 + this.cam.near * 1.5 / sx;
+      if (inside) mesh = this.nearQuad(model, sx, sy, sz);
+      // pixels per nozzle radius: 6 steps from ~8 px up, 4 below ~3 px
+      const rp = this.cam.px / Math.max(Math.hypot(ex, ey, ez - Ln / 2), 1);
+      gl.uniform3f(u.uEye, ex, ey, ez); gl.uniform1f(u.uLn, Ln); gl.uniform1f(u.uIn, inside ? 1 : 0);
+      gl.uniform1f(u.uSteps, clamp(Math.round(rp * 0.4 + 2.8), 4, 6));
+      gl.uniform1f(u.uDia, dia || 3); gl.uniform1f(u.uAB, ab || 0); gl.uniform1f(u.uPh, ph || 0);
+    }
+    if (mode === 1 || inside) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
-    gl.depthMask(true); gl.disable(gl.BLEND);
+    gl.depthMask(true); gl.disable(gl.BLEND); gl.enable(gl.CULL_FACE);
+  },
+  // two triangles just past the near plane that cover the screen, in the unit frame of a flame drawn with model / scale
+  nearQuad(model, sx, sy, sz) {
+    const nq = this.nq || (this.nq = { mesh: this.mesh(new Float32Array(18), 'p3', true), d: new Float32Array(18) });
+    const m = this.cam.ivp, d = nq.d, C = [-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1];
+    for (let i = 0; i < 6; i++) {
+      const x = C[i * 2], y = C[i * 2 + 1], z = -0.9, w = m[3] * x + m[7] * y + m[11] * z + m[15];
+      const px = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w - model[12], py = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w - model[13],
+        pz = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w - model[14];
+      d[i * 3] = (px * model[0] + py * model[1] + pz * model[2]) / sx;
+      d[i * 3 + 1] = (px * model[4] + py * model[5] + pz * model[6]) / sy;
+      d[i * 3 + 2] = (px * model[8] + py * model[9] + pz * model[10]) / sz;
+    }
+    this.update(nq.mesh, d, 18);
+    return nq.mesh;
   },
 };
 const IDENT = M4.create();

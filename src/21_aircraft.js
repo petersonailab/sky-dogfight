@@ -6,24 +6,39 @@
 // speed km/h, lock range km, angles in degrees, times in seconds.
 // fov0: the target has to be inside this cone (half-angle) to START a lock;
 // fov1: while locking / locked the target has to stay inside this cone.
+// lockTr: [km, s, km, s] — lock time that grows with range (between the two points, held outside them).
+// Lock ranges by rule: every radar missile 11.5 km, every short-range IR missile 5 km.
+const LOCK_RAD = 11.5, LOCK_IR_SHORT = 5.0;
 const MISSILES = {
-  aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', type: 'rad', cls: '中程', lock: 7.5, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 23, lockT: 1.5, shape: 'rad' },
-  aim9m: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: 2.8, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  aim54: { name: 'AIM-54 Phoenix', short: 'AIM-54', type: 'rad', cls: '遠程', lock: 12.0, dmg: 180, spd: 6120, accT: 1.5, turn: 15, blast: 20, fov0: 5, fov1: 34, lockT: 1.5, shape: 'big' },
-  meteor: { name: 'Meteor', short: 'METEOR', type: 'rad', cls: '遠程', lock: 12.0, dmg: 180, spd: 5400, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 35, lockT: 1.5, shape: 'rad' },
-  irist: { name: 'IRIS-T', short: 'IRIS-T', type: 'ir', cls: '近程', lock: 2.8, dmg: 131, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  r27r: { name: 'R-27R Alamo', short: 'R-27R', type: 'rad', cls: '中程', lock: 7.1, dmg: 149, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 5, fov1: 10, lockT: 1.0, shape: 'rad' },
-  r73: { name: 'R-73 Archer', short: 'R-73', type: 'ir', cls: '近程', lock: 2.8, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  s530d: { name: 'Super 530D', short: 'S530D', type: 'rad', cls: '中程', lock: 6.6, dmg: 167, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 7, fov1: 7, lockT: 0.6, shape: 'rad' },
-  magic: { name: 'R.550 Magic', short: 'MAGIC', type: 'ir', cls: '近程', lock: 2.5, dmg: 140, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 23, lockT: 1.5, shape: 'rad' },
+  aim9m: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  aim54: { name: 'AIM-54 Phoenix', short: 'AIM-54', type: 'rad', cls: '遠程', lock: LOCK_RAD, dmg: 180, spd: 6120, accT: 1.5, turn: 15, blast: 20, fov0: 5, fov1: 34, lockT: 1.5, shape: 'big' },
+  meteor: { name: 'Meteor', short: 'METEOR', type: 'rad', cls: '遠程', lock: LOCK_RAD, dmg: 180, spd: 5400, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 35, lockT: 1.5, shape: 'rad' },
+  irist: { name: 'IRIS-T', short: 'IRIS-T', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 131, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  r27r: { name: 'R-27R Alamo', short: 'R-27R', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 149, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 5, fov1: 10, lockT: 1.0, shape: 'rad' },
+  r73: { name: 'R-73 Archer', short: 'R-73', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  s530d: { name: 'Super 530D', short: 'S530D', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 167, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 7, fov1: 7, lockT: 0.6, shape: 'rad' },
+  magic: { name: 'R.550 Magic', short: 'MAGIC', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 140, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  // Rafale: medium-range IR missile, much more agile than the others; lock time grows with range
+  micair: { name: 'MICA IR', short: 'MICA IR', type: 'ir', cls: '中程', lock: 11.5, dmg: 152, spd: 4914, accT: 1.0, turn: 47, blast: 16, fov0: 10, fov1: 20, lockT: 1.1, lockTr: [2, 1.1, 7, 2.0], shape: 'rad' },
+  r77: { name: 'R-77 Adder', short: 'R-77', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 5, fov1: 20, lockT: 1.6, shape: 'rad' },
+  aim7: { name: 'AIM-7 Sparrow', short: 'AIM-7', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 162, spd: 6084, accT: 1.0, turn: 15, blast: 15, fov0: 4, fov1: 9, lockT: 1.0, shape: 'rad' },
+  // the F-15's Sidewinders come with their own figures (less damage, smaller blast than the F-16's)
+  aim9m15: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 121, spd: 3402, accT: 0.6, turn: 15, blast: 10, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
   // MiG-21 weapons: estimated in the same style (no figures were supplied for them)
-  r3r: { name: 'R-3R', short: 'R-3R', type: 'rad', cls: '中程', lock: 5.0, dmg: 125, spd: 3960, accT: 1.0, turn: 15, blast: 12, fov0: 5, fov1: 9, lockT: 1.2, shape: 'rad', est: true },
-  r60: { name: 'R-60', short: 'R-60', type: 'ir', cls: '近程', lock: 2.5, dmg: 118, spd: 3060, accT: 0.5, turn: 15, blast: 9, fov0: 7, fov1: 15, lockT: 1.2, shape: 'ir', est: true },
+  r3r: { name: 'R-3R', short: 'R-3R', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 125, spd: 3960, accT: 1.0, turn: 15, blast: 12, fov0: 5, fov1: 9, lockT: 1.2, shape: 'rad', est: true },
+  r60: { name: 'R-60', short: 'R-60', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 118, spd: 3060, accT: 0.5, turn: 15, blast: 9, fov0: 7, fov1: 15, lockT: 1.2, shape: 'ir', est: true },
 };
 for (const id in MISSILES) {
   const m = MISSILES[id];
   m.id = id; m.v = m.spd / 3.6; m.range = m.lock * 1000; m.turnR = m.turn * DEG; m.fov0R = m.fov0 * DEG; m.fov1R = m.fov1 * DEG;
   m.life = m.range / m.v * 1.6 + m.accT + 2.5;
+}
+// seconds to lock a target `dist` metres away
+function lockTime(m, dist) {
+  const L = m.lockTr;
+  if (!L) return m.lockT;
+  return lerp(L[1], L[3], clamp((dist / 1000 - L[0]) / (L[2] - L[0]), 0, 1));
 }
 
 const AC_DEFS = [
@@ -32,7 +47,7 @@ const AC_DEFS = [
     gun: 'M61A1 20 mm 機砲', note: '單發動機輕型戰機，腹部進氣口加無框泡型座艙罩。最佳轉向速率 41°/秒、滾轉 240°/秒，近距纏鬥最靈活。',
     paint: { pattern: 1, top: '#80888e', bot: '#a7aeb3', c2: '#8e969b', c3: '#757d83', scale: 0.26, rad: '#5f6569', radZ: 1.9, glass: '#2f3a44', metal: 0.06, gloss: 0.34 },
     st: { hp: 174, vab: 1388, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 34, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -62,10 +77,10 @@ const AC_DEFS = [
   },
   {
     id: 'f22', era: 'jet', name: 'F-22A 猛禽', en: 'F-22A RAPTOR', country: '美國', first: 1997, len: 18.92, span: 13.56,
-    gun: 'M61A2 20 mm 機砲', note: '匿蹤戰機，飛彈收在內藏彈艙。不開後燃器也能飛到 1,361 km/h（超音速巡航），中程彈 6 枚全場最多。',
+    gun: 'M61A2 20 mm 機砲', note: '匿蹤戰機，飛彈收在內藏彈艙。不開後燃器也能飛到 1,361 km/h（超音速巡航），彈艙內藏 6 枚中程彈。',
     paint: { pattern: 1, top: '#6c7177', bot: '#686d72', c2: '#7c8187', c3: '#63686e', scale: 0.2, glass: '#8a6a2c', metal: 0.12, gloss: 0.3 },
     st: { hp: 297, vab: 1510, vmax: 1361, vtab: 742, vt: 498, vc: 810, vr: 144, vs: 288, vcl: 603, aab: 47, acc: 28, wb: 40, wh: 16, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
     loadout: [['aim120', 6], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -73,28 +88,85 @@ const AC_DEFS = [
         { z: 3.4, w: 0.86, h: 0.55, hb: 0.42, ch: 0.9 }, { z: 5.0, w: 1.05, h: 0.62, hb: 0.5, ch: 0.85 },
         { z: 6.6, w: 1.62, h: 0.62, hb: 0.62, ch: 0.85, n: 2.2 }, { z: 8.6, w: 2.12, h: 0.62, hb: 0.66, ch: 0.8, n: 2.6 },
         { z: 11.5, w: 2.18, h: 0.62, hb: 0.6, ch: 0.8, n: 2.8 }, { z: 14.5, w: 1.98, h: 0.55, hb: 0.5, ch: 0.8, n: 3 },
-        { z: 16.8, w: 1.62, h: 0.45, hb: 0.42, ch: 0.75, n: 3.2 }, { z: 18.2, w: 1.4, h: 0.38, hb: 0.36, n: 3.5 },
+        { z: 16.0, w: 1.62, h: 0.45, hb: 0.4, ch: 0.75, n: 3.2 },
       ], { seg: 24 });
       for (const s of [1, -1]) {
         a.loft([{ z: 5.5, w: 0.46, h: 0.48, hb: 0.46, y: -0.18, n: 1.6 }, { z: 7.0, w: 0.56, h: 0.55, y: -0.15, n: 1.8 }, { z: 9.8, w: 0.5, h: 0.5, y: -0.1, n: 2 }], { x: 1.3 * s, cap0: false, seg: 12 });
         a.face([1.3 * s, -0.18, 5.58], 0.4, 0.4, 1.6);
+        // tail booms beside the nozzles, carrying the stabilators
+        a.loft([{ z: 14.8, w: 0.18, h: 0.35, hb: 0.35, y: 0.05 }, { z: 17.0, w: 0.16, h: 0.2, hb: 0.2, y: 0.22 }, { z: 17.64, w: 0.1, h: 0.08, hb: 0.08, y: 0.28 }], { x: 1.38 * s, seg: 10 });
       }
-      a.wing([[1.9, 7.4, 15.2, 0.42], [6.78, 12.5, 13.4, 0.08]], { y: 0, dih: -3 });
-      const sR = a.bone('stab', [2.6, 0.05, 17.4], [1, 0, 0], 1), sL = a.bone('stab', [-2.6, 0.05, 17.4], [1, 0, 0], -1);
-      a.wing([[1.4, 15.3, 19.2, 0.16], [4.45, 17.7, 19.0, 0.06]], { y: 0.05, bones: [sR, sL] });
-      a.fin([[0, 12.6, 16.9, 0.2], [2.75, 14.95, 16.3, 0.07]], { x: 1.55, y: 0.42, cant: 28, twin: true, accentFrom: 1.9 });
-      for (const s of [1, -1]) { a.mat(MAT.DARK); a.b.box([0.62 * s, 0.05, 18.6], 0.5, 0.38, 0.9); a.mat(MAT.BLACK); a.b.disc([0.62 * s, 0.05, 19.06], 0.2, 0.14, [0, 0, 1]); a.mat(MAT.PAINT); a.flame(0.62 * s, 0.05, 19.06, 0.34); }
+      a.wing([[1.9, 8.06, 15.0, 0.42], [2.8, 8.9, 15.66, 0.36], [6.05, 11.91, 14.57, 0.1], [6.87, 12.66, 13.86, 0.06]], { y: 0.2, dih: -3 });
+      const sR = a.bone('stab', [2.0, 0.2, 16.2], [1, 0, 0], 1), sL = a.bone('stab', [-2.0, 0.2, 16.2], [1, 0, 0], -1);
+      a.wing([[1.5, 15.65, 17.6, 0.2], [2.0, 15.15, 18.15, 0.24], [2.88, 15.85, 18.92, 0.18], [4.55, 17.2, 18.38, 0.06]], { y: 0.2, dih: -1.5, bones: [sR, sL] });
+      a.fin([[0, 12.82, 17.1, 0.16], [3.28, 14.25, 15.49, 0.08]], { x: 1.36, y: 0.24, cant: 28, twin: true, accentFrom: 2.7 });
+      // flat 2-D nozzles ending well ahead of the stabilator tips
+      for (const s of [1, -1]) { a.mat(MAT.DARK); a.b.box([0.7 * s, 0.125, 16.1], 1.0, 0.52, 1.0); a.mat(MAT.BLACK); a.b.disc([0.7 * s, 0.125, 16.62], 0.42, 0.1, [0, 0, 1]); a.mat(MAT.PAINT); a.flame(0.7 * s, 0.125, 16.62, 0.24); }
       a.canopy(4.0, 0.55, 0.5, 0.55, 2.0);
       a.gun(1.65, 0.25, 8.2);
-      a.tip(6.8, -0.25, 13.3); a.tip(-6.8, -0.25, 13.3);
+      a.tip(6.87, -0.06, 13.62); a.tip(-6.87, -0.06, 13.62);
+    },
+  },
+  {
+    id: 'f15', era: 'jet', name: 'F-15E 打擊鷹', en: 'F-15E STRIKE EAGLE', country: '美國', first: 1986, len: 19.43, span: 13.05,
+    gun: 'M61A1 20 mm 機砲（加特林）', note: '雙座雙發重型戰機，機身兩側貼著保形油箱。極速 1,552 km/h 全場最快、生命值 296；加特林機砲要先轉 0.8 秒才全速，射速每秒 60 發。',
+    // gunship grey like the hi-detail textures
+    paint: { pattern: 0, top: '#7b7d82', bot: '#7f8085', c2: '#7b7d82', c3: '#7b7d82', scale: 0.3, rad: '#76777b', radZ: 1.9, glass: '#2f3b46', metal: 0.08, gloss: 0.34 },
+    // M61A1: 60 rounds/s, 511 damage/s, spins up in 0.8 s; overheats after 5.98 s of fire, cools 16 %/s, 6.25 s to recover
+    st: { hp: 296, vab: 1552, vmax: 987, vtab: 797, vt: 513, vc: 882, vr: 216, vs: 288, vcl: 620, aab: 49, acc: 30, wb: 36, wh: 15, roll: 190, resp: 6,
+      abFuel: 18.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 60, gunDmg: 511 / 60 / 1.35, bullet: 1550, spread: 1.0, spin: 0.8, heat: { t: 5.98, cool: 0.16, lock: 6.25 } },
+    loadout: [['aim7', 6], ['aim9m15', 4]],
+    build(a) {
+      // after the hi-detail model: long nose and two-seat canopy with a hump behind it, box intakes with the ramp
+      // forward, flat-bottomed conformal tanks out to the wing roots, engines side by side, tail booms carrying the
+      // twin fins and the dog-toothed stabilators, cropped-delta wing with 45° leading edge
+      a.body([
+        { z: 0, w: 0.03, h: 0.03, y: -0.33 }, { z: 0.6, w: 0.24, h: 0.24, y: -0.28 }, { z: 1.1, w: 0.36, h: 0.36, y: -0.235 },
+        { z: 1.6, w: 0.46, h: 0.47, y: -0.18 }, { z: 2.1, w: 0.53, h: 0.55, y: -0.125 }, { z: 2.6, w: 0.59, h: 0.62, y: -0.055 },
+        { z: 3.1, w: 0.62, h: 0.66, hb: 0.68, y: 0.02 }, { z: 5.1, w: 0.61, h: 0.7, hb: 0.69, y: 0.02, n: 2.2 }, { z: 7.6, w: 0.6, h: 0.8, hb: 0.81, y: 0.1, n: 2.4 },
+        { z: 9.6, w: 0.6, h: 0.38, hb: 0.79, y: 0.07, n: 2.6 }, { z: 12.6, w: 0.6, h: 0.42, hb: 0.79, y: -0.05, n: 2.6 }, { z: 15.1, w: 0.55, h: 0.4, hb: 0.72, y: -0.1, n: 2.4 },
+        { z: 16.6, w: 0.32, h: 0.2, hb: 0.42, y: -0.1 }, { z: 17.3, w: 0.08, h: 0.06, y: -0.05 },
+      ]);
+      a.loft([{ z: 6.9, w: 0.42, h: 0.4, y: 0.9 }, { z: 7.6, w: 0.36, h: 0.36, y: 0.8 }, { z: 8.6, w: 0.3, h: 0.27, y: 0.7 }, { z: 9.6, w: 0.24, h: 0.2, y: 0.6 },
+        { z: 10.2, w: 0.14, h: 0.06, y: 0.42 }], { seg: 14 });
+      for (const s of [1, -1]) {
+        const side = st => st.map(p => Object.assign({}, p, { x: p.x * s }));
+        // box intake trunks merging into the conformal tanks, then the tail booms
+        a.loft(side([{ z: 6.1, x: 1.07, w: 0.45, h: 0.3, y: 0.3, n: 6 }, { z: 6.8, x: 1.1, w: 0.48, h: 0.56, y: 0.06, n: 6 }, { z: 7.6, x: 1.17, w: 0.55, h: 0.74, y: -0.11, n: 6 }, { z: 9.1, x: 1.32, w: 0.7, h: 0.68, y: -0.17, n: 6 },
+          { z: 12.1, x: 1.32, w: 0.7, h: 0.61, y: -0.25, n: 6 }, { z: 15.1, x: 1.32, w: 0.7, h: 0.58, y: -0.26, n: 5 }, { z: 16.1, x: 1.42, w: 0.53, h: 0.47, y: -0.23, n: 4 },
+          { z: 16.9, x: 1.72, w: 0.2, h: 0.24, y: -0.2, n: 4 }, { z: 19.0, x: 1.78, w: 0.13, h: 0.14, y: -0.2, n: 4 }]), { cap0: false, seg: 16 });
+        a.face([1.07 * s, 0.3, 6.18], 0.41, 0.26, 6);
+        a.b.box([1.07 * s, 0.6, 5.95], 0.9, 0.05, 0.5);   // intake ramp, ahead of the raked opening
+        // engines and nozzles
+        a.loft(side([{ z: 10.6, x: 0.58, w: 0.55, h: 0.55, y: -0.25 }, { z: 14.6, x: 0.6, w: 0.62, h: 0.62, y: -0.19 }, { z: 16.1, x: 0.65, w: 0.57, h: 0.57, y: -0.09 },
+          { z: 17.1, x: 0.709, w: 0.47, h: 0.47, y: -0.118 }]), { seg: 18 });
+        a.nozzle(0.709 * s, -0.118, 17.1, 0.47, 0.37, 0.667);
+        // wing pylon with its side rails, fin-tip pod
+        a.b.box([2.8 * s, -0.12, 11.77], 0.12, 0.62, 3.26); a.b.box([2.8 * s, -0.12, 11.06], 0.72, 0.07, 1.42);
+        a.mat(MAT.ACCENT); a.b.cyl([1.7 * s, 3.38, 16.77], [1.7 * s, 3.38, 18.37], 0.045, 0.04, { seg: 8, cap0: true, cap1: true }); a.mat(MAT.PAINT);
+      }
+      a.wing([[1.7, 8.55, 14.98, 0.14], [4.0, 11.22, 14.94, 0.1], [5.6, 12.82, 15.3, 0.08], [6.2, 13.42, 14.69, 0.07], [6.52, 13.81, 14.2, 0.05]], { y: 0.25, dih: -0.7 });
+      const sR = a.bone('stab', [1.84, -0.223, 17.1], [1, 0, 0], 1), sL = a.bone('stab', [-1.84, -0.223, 17.1], [1, 0, 0], -1);
+      a.wing([[1.84, 16.08, 19.02, 0.1], [2.74, 17.06, 19.17, 0.08], [2.76, 16.64, 19.18, 0.08], [3.87, 17.97, 19.43, 0.06], [4.2, 18.33, 18.98, 0.05], [4.31, 18.6, 18.8, 0.04]],
+        { y: -0.223, bones: [sR, sL] });
+      a.fin([[0, 15.13, 18.04, 0.2], [3.15, 17.4, 18.22, 0.07]], { x: 1.86, y: 0.2, cant: -2.8, twin: true, accentFrom: 2.72 });
+      a.canopy(5.7, 0.92, 0.52, 0.61, 2.1);
+      a.gun(1.95, 0.4, 8.4);   // M61A1 in the right wing root
+      // same launch points as the hi-detail model: AIM-7 on the conformal tanks (front, rear) and under the wing pylons,
+      // AIM-9 beside the pylons' rails (outer pair first)
+      a.missile(-1.5, -0.957, 7.479, 'rad'); a.missile(1.5, -0.957, 7.479, 'rad'); a.missile(-1.5, -0.984, 11.679, 'rad'); a.missile(1.5, -0.984, 11.679, 'rad');
+      a.missile(-2.8, -0.531, 9.679, 'rad'); a.missile(2.8, -0.531, 9.679, 'rad');
+      a.missile(-3.19, -0.12, 9.399, 'ir'); a.missile(3.19, -0.12, 9.399, 'ir'); a.missile(-2.41, -0.12, 9.399, 'ir'); a.missile(2.41, -0.12, 9.399, 'ir');
+      a.tip(6.52, 0.19, 14.0); a.tip(-6.52, 0.19, 14.0);
     },
   },
   {
     id: 'f14', era: 'jet', name: 'F-14A 雄貓', en: 'F-14A TOMCAT', country: '美國', first: 1970, len: 19.1, span: 19.55,
-    gun: 'M61A1 20 mm 機砲', note: '可變後掠翼艦載戰機，機翼會隨速度自動後掠。雷達 17.8 公里看得最遠，AIM-54 鳳凰飛彈速度最快。',
+    gun: 'M61A1 20 mm 機砲', note: '可變後掠翼艦載戰機，機翼會隨速度自動後掠。AIM-54 鳳凰飛彈速度最快、彈體最大。',
     paint: { pattern: 0, top: '#b3b2a9', bot: '#e3e3dc', c2: '#b3b2a9', c3: '#b3b2a9', scale: 0.3, rad: '#c9c8bf', radZ: 1.8, glass: '#2e3944', metal: 0.05, gloss: 0.42 },
     st: { hp: 251, vab: 1240, vmax: 739, vtab: 580, vt: 431, vc: 666, vr: 180, vs: 288, vcl: 496, aab: 41, acc: 25, wb: 36, wh: 14, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 17.8, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
     loadout: [['aim54', 4], ['aim9m', 4]],
     build(a) {
       a.body([
@@ -129,7 +201,7 @@ const AC_DEFS = [
     gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高。',
     paint: { pattern: 2, top: '#9fb3c4', bot: '#c2d0da', c2: '#7f9db7', c3: '#b6c6d1', scale: 0.36, rad: '#d3d8cf', radZ: 1.9, glass: '#2c3a48', metal: 0.05, gloss: 0.3, },
     st: { hp: 297, vab: 1496, vmax: 947, vtab: 780, vt: 506, vc: 846, vr: 180, vs: 288, vcl: 598, aab: 43, acc: 27, wb: 37, wh: 16, roll: 180, resp: 6,
-      abFuel: 17.3, abRegen: 12.8, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
+      abFuel: 17.3, abRegen: 12.8, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
     loadout: [['r27r', 4], ['r73', 4]],
     build(a) {
       a.body([
@@ -160,11 +232,69 @@ const AC_DEFS = [
     },
   },
   {
+    id: 'su30', era: 'jet', name: 'Su-30 側衛-C', en: 'SU-30 FLANKER-C', country: '俄羅斯', first: 1989, len: 21.935, span: 14.7, flame: 'ru',
+    gun: 'GSh-30-1 30 mm 機砲', note: '側衛家族的雙座多用途型，機頭加了一對鴨翼。生命值 296，掛 6 枚 R-77 主動雷達彈和 4 枚 R-73，加速比較慢但很耐打。',
+    // blotchy camouflage like the hi-detail texture: light blue-grey base (c3, the largest share of the noise pattern),
+    // blue-grey (top) and dark blue (c2) patches
+    paint: { pattern: 1, top: '#7c8ca2', bot: '#a3b0bf', c2: '#44546c', c3: '#aebccb', scale: 0.37, rad: '#303236', radZ: 3.4, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
+    // GSh-30-1: 18 rounds/s, 322 damage/s; overheats after 3.45 s of fire, cools 21 %/s, 4.76 s to recover
+    st: { hp: 296, vab: 1456, vmax: 927, vtab: 741, vt: 498, vc: 828, vr: 180, vs: 288, vcl: 582, aab: 36, acc: 22, wb: 36, wh: 15, roll: 180, resp: 6,
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 18, gunDmg: 322 / 18 / 1.35, bullet: 1150, spread: 0.5, heat: { t: 3.45, cool: 0.21, lock: 4.76 } },
+    loadout: [['r77', 6], ['r73', 4]],
+    // after the hi-detail model (andertan): drooped nose, long two-seat canopy, wide LERX with the canards at their
+    // trailing end, box intakes under the LERX, round nacelles, flat centre body ending in a long tail sting
+    build(a) {
+      a.mat(MAT.GRAY); a.b.cyl([0, -0.6, 0], [0, -0.6, 0.6], 0.012, 0.025, { seg: 6 }); a.mat(MAT.PAINT); // pitot
+      a.body([
+        { z: 0.55, w: 0.07, h: 0.07, y: -0.56 }, { z: 0.95, w: 0.19, h: 0.18, y: -0.52 }, { z: 1.5, w: 0.37, h: 0.36, y: -0.44 },
+        { z: 2.4, w: 0.56, h: 0.55, y: -0.32 }, { z: 3.4, w: 0.67, h: 0.66, y: -0.2 }, { z: 4.4, w: 0.74, h: 0.62, hb: 0.64, y: -0.12 },
+        { z: 5.9, w: 0.82, h: 0.62, hb: 0.64, y: -0.02 }, { z: 7.4, w: 0.95, h: 0.62, hb: 0.6, y: 0.07 }, { z: 8.9, w: 1.0, h: 0.62, hb: 0.55, y: 0.09, n: 2.4 },
+        { z: 10.4, w: 1.0, h: 0.5, hb: 0.54, y: 0.09, n: 2.6 }, { z: 11.4, w: 0.95, h: 0.55, hb: 0.76, n: 2.6 }, { z: 13.4, w: 0.9, h: 0.35, hb: 0.78, n: 2.6 },
+        { z: 15.4, w: 0.75, h: 0.15, hb: 0.78, n: 2.4 }, { z: 18.0, w: 0.5, h: 0.05, hb: 0.74 }, { z: 20.4, w: 0.32, h: 0.32, hb: 0.35, y: -0.43 },
+        { z: 21.0, w: 0.26, h: 0.3, y: -0.45 }, { z: 21.5, w: 0.16, h: 0.18, y: -0.47 }, { z: 21.94, w: 0.03, h: 0.03, y: -0.48 },
+      ]);
+      // dorsal spine from the canopy back to the wing root, and the two-seat canopy with a frame between the cockpits
+      a.loft([{ z: 7.25, w: 0.53, h: 1.01, hb: 0.2, y: 0.55 }, { z: 8.4, w: 0.55, h: 0.88, hb: 0.3, y: 0.55 }, { z: 9.4, w: 0.5, h: 0.65, hb: 0.3, y: 0.55 },
+        { z: 10.4, w: 0.45, h: 0.45, hb: 0.3, y: 0.55 }, { z: 11.4, w: 0.42, h: 0.25, hb: 0.3, y: 0.52 }, { z: 12.6, w: 0.38, h: 0.0, hb: 0.3, y: 0.42 }], { seg: 18 });
+      a.loft([{ z: 3.65, w: 0.36, h: 0.01, hb: 0.02, y: 0.5 }, { z: 4.4, w: 0.47, h: 0.43, hb: 0.15, y: 0.52 }, { z: 5.4, w: 0.51, h: 0.78, hb: 0.18, y: 0.54 },
+        { z: 6.4, w: 0.52, h: 0.95, hb: 0.2, y: 0.55 }, { z: 7.2, w: 0.5, h: 1.0, hb: 0.2, y: 0.55 }, { z: 7.8, w: 0.42, h: 0.9, hb: 0.2, y: 0.55 }], { mat: MAT.GLASS, seg: 18 });
+      a.loft([{ z: 5.72, w: 0.525, h: 0.855, hb: 0.1, y: 0.545 }, { z: 5.8, w: 0.525, h: 0.86, hb: 0.1, y: 0.545 }], { cap0: false, cap1: false, seg: 18 });
+      for (const s of [1, -1]) {
+        a.loft([{ z: 9.4, w: 0.6, h: 0.55, y: -0.68, n: 4 }, { z: 10.4, w: 0.63, h: 0.58, y: -0.7, n: 4 }, { z: 13.4, w: 0.65, h: 0.6, y: -0.67, n: 3 },
+          { z: 15.4, w: 0.66, h: 0.63, y: -0.6, n: 2.4 }, { z: 17.4, w: 0.68, h: 0.68, y: -0.58 }, { z: 19.95, w: 0.62, h: 0.62, y: -0.58 }], { x: 1.28 * s, cap0: false, cap1: false, seg: 16 });
+        a.face([1.28 * s, -0.68, 9.46], 0.56, 0.52, 4);
+        a.nozzle(1.28 * s, -0.58, 19.9, 0.62, 0.56, 0.81);
+        a.loft([{ z: 14.9, w: 0.03, h: 0.08, y: -0.36 }, { z: 15.5, w: 0.06, h: 0.26, y: -0.39 }, { z: 19.2, w: 0.06, h: 0.26, y: -0.39 }, { z: 19.8, w: 0.03, h: 0.1, y: -0.45 }], { x: 1.92 * s, seg: 8 }); // tail beam
+      }
+      a.wing([[0.7, 4.6, 16.6, 0.3], [0.95, 5.9, 16.7, 0.3], [1.21, 7.41, 16.75, 0.28], [1.42, 7.91, 16.78, 0.27], [1.81, 8.41, 16.82, 0.26], [1.94, 10.41, 16.83, 0.25],
+        [2.08, 10.91, 16.84, 0.24], [7.4, 15.72, 17.8, 0.06]], { y: 0.03 });
+      const cR = a.bone('canard', [1.8, -0.07, 9.07], [1, 0, 0], 1), cL = a.bone('canard', [-1.8, -0.07, 9.07], [1, 0, 0], -1);
+      a.wing([[1.82, 8.44, 10.23, 0.1], [3.28, 10.38, 10.88, 0.04]], { y: -0.1, dih: 5, bones: [cR, cL] });
+      const sR = a.bone('stab', [1.95, -0.6, 18.44], [1, 0, 0], 1), sL = a.bone('stab', [-1.95, -0.6, 18.44], [1, 0, 0], -1);
+      a.wing([[1.95, 17.26, 19.68, 0.1], [2.3, 17.56, 20.62, 0.09], [4.5, 19.43, 20.83, 0.05], [5.02, 19.87, 20.05, 0.03]], { y: -0.6, bones: [sR, sL] });
+      a.fin([[0, 15.1, 18.63, 0.18], [3.19, 17.75, 18.93, 0.07], [3.45, 17.97, 18.35, 0.04]], { x: 1.92, y: -0.03, cant: 0, twin: true, accentFrom: 2.95 });
+      a.fin([[0, 16.09, 18.47, 0.07], [-0.7, 16.93, 18.46, 0.05]], { x: 1.955, y: -0.63, cant: 0, twin: true });
+      a.gun(1.05, 0.12, 8.0);
+      // same stations, heights and launch order as the hi-detail model: wing pylons, under the intakes, the tandem pair in the
+      // tunnel, then outer wing pylons and the launch rails under the wingtips; pylons and rails as drawn under that model,
+      // reaching up to `top`
+      const pylon = (x, y, z, kind, top) => { const [L, r] = MSL_DIM[kind];
+        a.mat(MAT.GRAY); a.b.box([x, (y + r - 0.02 + top) / 2, z + L * 0.48], 0.07, top - y - r + 0.02, L * 0.5); a.mat(MAT.PAINT); };
+      for (const s of [-1, 1]) { a.missile(3.3 * s, -0.532, 12.285, 'rad'); pylon(3.3 * s, -0.532, 12.285, 'rad', 0.04); }
+      for (const s of [-1, 1]) { a.missile(1.28 * s, -1.856, 10.085, 'rad'); pylon(1.28 * s, -1.856, 10.085, 'rad', -1.22); }
+      a.missile(0, -0.888, 10.585, 'rad'); a.missile(0, -0.882, 14.585, 'rad');
+      for (const s of [-1, 1]) { a.missile(5.5 * s, -0.507, 13.96, 'ir'); pylon(5.5 * s, -0.507, 13.96, 'ir', 0.04); }
+      for (const s of [-1, 1]) { a.missile(7.35 * s, -0.247, 14.91, 'ir'); pylon(7.35 * s, -0.247, 14.91, 'ir', 0.04); }
+      a.tip(7.4, 0.04, 17.6); a.tip(-7.4, 0.04, 17.6);
+    },
+  },
+  {
     id: 'typhoon', era: 'jet', name: '颱風戰鬥機', en: 'EUROFIGHTER TYPHOON', country: '英國／德國／義大利／西班牙', first: 1994, len: 15.96, span: 10.95,
     gun: 'BK-27 27 mm 機砲', note: '鴨翼加三角翼的歐洲雙發戰機，腹下有張「笑臉」進氣口。不開後燃器就有 1,240 km/h，掛流星遠程飛彈。',
     paint: { pattern: 0, top: '#8d9399', bot: '#a9afb4', c2: '#979da2', c3: '#868c92', scale: 0.25, rad: '#6f757a', radZ: 1.7, glass: '#2f3943', metal: 0.06, gloss: 0.36 },
     st: { hp: 232, vab: 1510, vmax: 1240, vtab: 637, vt: 440, vc: 738, vr: 144, vs: 288, vcl: 623, aab: 47, acc: 26, wb: 40, wh: 15, roll: 190, resp: 6,
-      abFuel: 16.8, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
+      abFuel: 16.8, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
     loadout: [['meteor', 4], ['irist', 4]],
     build(a) {
       a.body([
@@ -190,11 +320,57 @@ const AC_DEFS = [
     },
   },
   {
+    id: 'rafale', era: 'jet', name: '陣風 F3-R', en: 'RAFALE F3-R', country: '法國', first: 1986, len: 15.27, span: 10.9,
+    gun: 'GIAT 30M791 30 mm 機砲', note: '法國的鴨翼三角翼雙發戰機。全掛 8 枚 MICA IR 紅外線飛彈：中程也能鎖定（11.5 公里），彈體轉向 47°/秒，又急又準。',
+    // dark grey like the hi-detail textures, darker radome, gold-tinted canopy
+    paint: { pattern: 0, top: '#4c5257', bot: '#40454a', c2: '#4c5257', c3: '#4c5257', scale: 0.3, rad: '#35393c', radZ: 2.0, glass: '#6e5a36', metal: 0.07, gloss: 0.34 },
+    // GIAT 30: 24 rounds/s, 365 damage/s; overheats after 2.55 s of fire, cools 21 %/s, 4.76 s to recover
+    st: { hp: 204, vab: 1389, vmax: 1230, vtab: 680, vt: 422, vc: 792, vr: 144, vs: 198, vcl: 486, aab: 46, acc: 29, wb: 40, wh: 15, roll: 230, resp: 7,
+      abFuel: 15.6, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 24, gunDmg: 365 / 24 / 1.35, bullet: 1400, spread: 0.5, heat: { t: 2.55, cool: 0.21, lock: 4.76 } },
+    loadout: [['micair', 8]],
+    build(a) {
+      // after the hi-detail model: drooped nose with the fixed refuelling probe, long canopy, D-shaped intakes under
+      // close-coupled canards, wide blended centre body with a dorsal spine, cropped delta wing (48° leading edge),
+      // single fin with the fin-tip pod, twin nozzles close together
+      a.body([
+        { z: 0, w: 0.03, h: 0.03, y: -0.45 }, { z: 0.7, w: 0.19, h: 0.2, y: -0.42 }, { z: 1.5, w: 0.33, h: 0.34, y: -0.34 },
+        { z: 2.4, w: 0.45, h: 0.46, y: -0.27 }, { z: 3.3, w: 0.53, h: 0.56, hb: 0.54, y: -0.27 }, { z: 4.4, w: 0.6, h: 0.6, hb: 0.6, y: -0.25 },
+        { z: 5.6, w: 0.74, h: 0.62, hb: 0.66, y: -0.25, n: 2.2 }, { z: 7.0, w: 1.22, h: 0.6, hb: 0.71, y: -0.25, n: 2.4 },
+        { z: 9.5, w: 1.26, h: 0.58, hb: 0.7, y: -0.25, n: 2.4 }, { z: 11.5, w: 1.24, h: 0.42, hb: 0.6, y: -0.28, n: 2.4 },
+        { z: 13.0, w: 1.16, h: 0.38, hb: 0.44, y: -0.28, n: 2.3 }, { z: 13.7, w: 1.0, h: 0.32, hb: 0.42, y: -0.2, n: 2.2 },
+      ]);
+      a.loft([{ z: 5.0, w: 0.3, h: 0.3, y: 0.45 }, { z: 6.4, w: 0.33, h: 0.33, y: 0.4 }, { z: 8.5, w: 0.3, h: 0.3, y: 0.3 },
+        { z: 11.0, w: 0.28, h: 0.28, y: 0.3 }, { z: 13.5, w: 0.25, h: 0.25, y: 0.3 }, { z: 14.3, w: 0.14, h: 0.22, y: 0.3 }], { seg: 14 });
+      a.loft([{ z: 1.3, w: 0.035, h: 0.035, x: 0.66, y: 0.6 }, { z: 2.1, w: 0.04, h: 0.04, x: 0.63, y: 0.55 }, { z: 2.9, w: 0.045, h: 0.045, x: 0.36, y: 0.12 }], { seg: 6 });
+      for (const s of [1, -1]) {
+        a.loft([{ z: 4.85, w: 0.28, h: 0.6, hb: 0.43, y: -0.45, n: 3 }, { z: 6.0, w: 0.3, h: 0.6, hb: 0.44, y: -0.45, n: 3 },
+          { z: 7.6, w: 0.26, h: 0.5, hb: 0.4, y: -0.4, n: 2.6 }], { x: 0.85 * s, seg: 14 });
+        a.face([0.85 * s, -0.5, 4.83], 0.21, 0.31, 2.4);
+        a.nozzle(0.5 * s, -0.14, 13.6, 0.46, 0.37, 0.61);
+      }
+      a.wing([[1.15, 6.84, 12.89, 0.3], [2.65, 8.63, 12.78, 0.22], [4.7, 11.1, 12.56, 0.16]], { y: -0.25, dih: -1.3 });
+      const cR = a.bone('canard', [0.97, 0.15, 5.57], [1, 0, 0], 1), cL = a.bone('canard', [-0.97, 0.15, 5.57], [1, 0, 0], -1);
+      a.wing([[0.95, 4.9, 6.6, 0.09], [2.18, 6.42, 6.88, 0.04]], { y: 0.15, dih: -1.5, bones: [cR, cL] });
+      a.fin([[0, 9.6, 14.1, 0.3], [0.3, 11.0, 14.2, 0.24], [2.4, 14.0, 14.95, 0.08], [2.62, 14.35, 14.9, 0.05]], { y: 0.55, accentFrom: 2.25 });
+      a.mat(MAT.ACCENT); a.b.box([0, 2.77, 14.34], 0.18, 0.24, 1.86); a.mat(MAT.PAINT);
+      a.canopy(4.2, 0.3, 0.4, 0.7, 1.8);
+      a.gun(1.0, -0.1, 6.8);
+      a.rail(4.75, -0.42, 10.14, 12.97); a.rail(-4.75, -0.42, 10.14, 12.97);
+      // MICA IR, fired from the fuselage outward (same stations as the hi-detail model)
+      a.missile(-0.65, -0.96, 8.69, 'ir'); a.missile(0.65, -0.96, 8.69, 'ir');
+      a.missile(-2.75, -0.73, 8.79, 'ir', true); a.missile(2.75, -0.73, 8.79, 'ir', true);
+      a.missile(-3.75, -0.745, 9.69, 'ir', true); a.missile(3.75, -0.745, 9.69, 'ir', true);
+      a.missile(-4.75, -0.553, 9.79, 'ir'); a.missile(4.75, -0.553, 9.79, 'ir');
+      a.tip(4.8, -0.36, 12.8); a.tip(-4.8, -0.36, 12.8);
+    },
+  },
+  {
     id: 'm2000', era: 'jet', name: '幻象 2000-5', en: 'MIRAGE 2000-5', country: '法國', first: 1978, len: 14.36, span: 9.13,
     gun: 'DEFA 554 30 mm 機砲 ×2', note: '沒有水平尾翼的純三角翼，中華民國空軍也有服役。加速和爬升最快，但急轉彎掉速很兇。',
     paint: { pattern: 1, top: '#8796a5', bot: '#a6b3be', c2: '#9eacb9', c3: '#7a8a99', scale: 0.24, rad: '#6a7176', radZ: 1.75, glass: '#2d3944', metal: 0.06, gloss: 0.34 },
     st: { hp: 223, vab: 1509, vmax: 907, vtab: 558, vt: 362, vc: 810, vr: 144, vs: 216, vcl: 653, aab: 57, acc: 34, wb: 40, wh: 15, roll: 175, resp: 6,
-      abFuel: 14.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 9.5, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
+      abFuel: 14.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
     loadout: [['s530d', 4], ['magic', 4]],
     build(a) {
       a.body([
@@ -227,7 +403,7 @@ const AC_DEFS = [
     paint: { pattern: 0, top: '#9ba1a6', bot: '#d3d6d7', c2: '#9ba1a6', c3: '#9ba1a6', scale: 0.25, rad: '#575c60', radZ: 1.3, glass: '#3b5566', metal: 0.06, gloss: 0.36,
       marks: [{ wing: [3.2, 8.78, 0.32] }], markStyle: 'roc', markCol: '#22388c', markCol2: '#f2f2ee' },
     st: { hp: 200, vab: 1400, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 38, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       // after the AIDC three-view: drooped radome with a long pitot, bubble canopy, kidney intakes under long LERX,
@@ -266,7 +442,7 @@ const AC_DEFS = [
     gun: 'GSh-23L 23 mm 機砲', est: true, note: '機頭進氣、中央有震波錐的經典三角翼，產量最多的超音速戰機。（這架的數值是估計值）',
     paint: { pattern: 3, top: '#b9bec2', bot: '#c5c9cc', c2: '#b9bec2', c3: '#b9bec2', scale: 0.3, glass: '#2f3b45', metal: 0.72, gloss: 0.6 },
     st: { hp: 165, vab: 1420, vmax: 790, vtab: 600, vt: 450, vc: 760, vr: 144, vs: 270, vcl: 580, aab: 52, acc: 28, wb: 34, wh: 14, roll: 200, resp: 6,
-      abFuel: 12.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 6.0, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
+      abFuel: 12.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
     loadout: [['r3r', 2], ['r60', 2]],
     build(a) {
       a.body([
@@ -537,12 +713,15 @@ function buildSharedMeshes() {
   mb.box([0, 0, -0.95], 0.26, 0.012, 0.14); mb.box([0, 0, -0.95], 0.012, 0.26, 0.14);
   SHARED.missile = R.mesh(mb.data(), 'plane');
   SHARED.missilePaint = paintUniforms({ paint: { top: '#d9dad6', bot: '#d9dad6' } }, 0);
-  // afterburner cone along +z (unit)
+  // afterburner plume hull along +z (unit length, unit nozzle radius), closed at the tail and wound outward: a little
+  // wider than the gas envelope the flame shader marches through (same profile: slight bulge, then a long taper),
+  // rings packed toward the nozzle and the tip
   const fb = [];
-  const seg = 14, rings = 6;
-  const ring = (z) => { const r = Math.pow(1 - z, 0.65) * (1 - z * 0.15); const pts = []; for (let i = 0; i < seg; i++) { const t = i / seg * TAU; pts.push([Math.cos(t) * r, Math.sin(t) * r, z]); } return pts; };
+  const seg = 20, rings = 16;
+  const ring = (k) => { const z = 0.5 - 0.5 * Math.cos(k / rings * Math.PI), y = 1 - z, r = 1.1 * Math.sqrt(y * (1 + 0.8 * z)) * (1 + 0.6 * z * y * y * y) + 0.04 * y;
+    const pts = []; for (let i = 0; i < seg; i++) { const t = i / seg * TAU; pts.push([Math.cos(t) * r, Math.sin(t) * r, z]); } return pts; };
   for (let k = 0; k < rings; k++) {
-    const A = ring(k / rings), B = ring((k + 1) / rings);
+    const A = ring(k), B = ring(k + 1);
     for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; fb.push(...A[i], ...A[j], ...B[j], ...A[i], ...B[j], ...B[i]); }
   }
   SHARED.flame = R.mesh(new Float32Array(fb), 'p3');

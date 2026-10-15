@@ -12,9 +12,8 @@ const Main = {
     HUD.init($('hud'));
     HD.init();
     buildSharedMeshes(); FX.init(); FXQ.init();
-    WORLD.gen(); WORLD.buildTerrain();
     UI.init(hot);
-    WORLD.buildClouds(UI.prefs.quality >= 3 ? 80 : UI.prefs.quality === 1 ? 36 : 58);
+    WORLD.buildClouds(UI.prefs.quality >= 3 ? 140 : UI.prefs.quality === 1 ? 64 : 100);
     Input.init();
     UI.updateHangarPlane(); UI.yaw = 2.4;
     Net.init();
@@ -23,7 +22,7 @@ const Main = {
     requestAnimationFrame(t => this.frame(t));
     // keep presence flowing while the tab is in the background (rAF stops there)
     this.hiddenTimer = setInterval(() => { if (document.hidden && Game.active && Game.kind === 'online') { const now = performance.now(); Net.tick(now); } }, 250);
-    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD, buildAircraftModel };
+    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD, buildAircraftModel, lockTime };
   },
   frame() {
     requestAnimationFrame(t => this.frame(t));
@@ -56,7 +55,6 @@ const Main = {
   renderWorld(now) {
     R.begin(R.env.hor);
     R.drawSky();
-    R.drawLit(WORLD.terrainMesh, IDENT, {});
     R.drawLit(WORLD.cloudMesh, IDENT, { wrap: 0.8, emis: 0.36 });
     const hideMe = CAM.mode === 1 && Game.me && Game.me.alive;
     for (const pl of Game.planes) if (!(hideMe && pl === Game.me)) pl.draw(now);

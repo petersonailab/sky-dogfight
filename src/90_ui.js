@@ -156,7 +156,7 @@ const UI = {
       ['最佳轉向', `${st.wb}°/秒（${kmh(st.vc)} km/h 附近）`], ['滾轉', `${st.roll}°/秒`], ['失速', `${kmh(st.vs)} km/h`],
       [jet ? '後燃器' : 'WEP', `${st.abFuel} 秒，${st.abRegen} 秒回滿`]];
     if (jet) facts.push(['雷達', `${st.radar} 公里，掃描 ±${st.scan}°`], ['熱焰彈', `冷卻 ${st.flareCd} 秒，持續 ${st.flareDur} 秒`]);
-    facts.push(['機砲', d.gun]);
+    facts.push(['機砲', st.heat ? `${d.gun}，每秒 ${st.gunRate} 發，連射 ${st.heat.t} 秒會過熱` : d.gun]);
     if (jet) facts.push(['飛彈', d.loadText]);
     for (const [k, v] of facts) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
     const bars = document.createElement('div'); bars.className = 'bars';
@@ -166,9 +166,9 @@ const UI = {
     el.append(lab, h, en, dl, bars, note);
     const cr = HD_CREDIT[d.id];
     if (cr) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = `3D 模型：${cr[0]}，作者 ${cr[1]}（${cr[2]}，Sketchfab）`; el.append(c); }
-    const mc = [d.wR, d.wI].map(w => { const m = w && MSL_HD[w.m.id] && MSL_CREDIT[MSL_HD[w.m.id][0]]; return m ? `${m[0]}，作者 ${m[1]}` : ''; })
+    const mc = [d.wR, d.wI].map(w => { const m = w && MSL_HD[w.m.id] && MSL_CREDIT[MSL_HD[w.m.id][0]]; return m ? `${m[0]}，作者 ${m[1]}（${m[2] || 'CC BY 4.0'}）` : ''; })
       .filter((v, i, a) => v && a.indexOf(v) === i);
-    if (mc.length) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = '飛彈模型：' + mc.join('；') + '（CC BY 4.0，Sketchfab）'; el.append(c); }
+    if (mc.length) { const c = document.createElement('p'); c.className = 'credit'; c.textContent = '飛彈模型：' + mc.join('；') + '，Sketchfab'; el.append(c); }
   },
   renderHangar(now, dt) {
     const p = this.hangarPlane; if (!p) return;

@@ -13,7 +13,7 @@ class Plane {
     this.rate = new V3();
     this.ctrl = { pitch: 0, roll: 0, yaw: 0, thr: 0.85, ab: false, gun: false, msl: false, flare: false, swap: false };
     this.alive = false; this.hp = 100; this.kills = 0; this.deaths = 0;
-    this.ammo = 0; this.gunT = 0; this.mslCd = 0; this.gunIdle = 0;
+    this.ammo = 0; this.gunT = 0; this.mslCd = 0; this.gunIdle = 0; this.heat = 0; this.gunLock = 0; this.spin = 0;
     this.mR = 0; this.mI = 0; this.reloadR = 0; this.reloadI = 0; this.wsel = 'rad';
     this.flareCdT = 0; this.flareT = 0; this.abFuel = 0; this.abLock = false; this.abOn = false;
     this.lock = { t: null, p: 0, locked: false, w: null };
@@ -29,6 +29,7 @@ class Plane {
     this.accent = new Float32Array(3); this.look = { paint: null, accent: this.accent, firedR: 0, firedI: 0, bones: this.bones, hdBones: this.hdBones, flash: 0 };
     this.mslLook = { accent: ONE3, firedR: 0, firedI: 0, hdBones: null, flash: 0 }; this.si = null; this.siKey = '';
     this.trailT = 0; this.smokeT = 0; this.hd = null; this.vm = null;
+    this.abK = 0; this.flSeed = Math.random() * 60; // afterburner flame 0..1 (eased), flicker phase
     this.setAircraft(o.ac || AC_DEFS[0]);
   }
   setAircraft(def) {
@@ -48,10 +49,10 @@ class Plane {
     const st = this.st, P = this.perf, d = this.def;
     this.pos.copy(pos); this.q.copy(q); this.speed = Math.min(P.vmax, P.vc);
     this.fwd(this.vel).scale(this.speed);
-    this.hp = st.hp; this.alive = true; this.wreck = null; this.ammo = st.ammo;
+    this.hp = st.hp; this.alive = true; this.wreck = null; this.ammo = st.ammo || 0; this.heat = 0; this.gunLock = 0; this.spin = 0;
     this.mR = d.wR ? d.wR.n : 0; this.mI = d.wI ? d.wI.n : 0; this.reloadR = 0; this.reloadI = 0;
     if (!this.curW()) this.wsel = d.wR ? 'rad' : 'ir';
-    this.flareCdT = 0; this.flareT = 0; this.abFuel = P.abFuel; this.abLock = false; this.abOn = false;
+    this.flareCdT = 0; this.flareT = 0; this.abFuel = P.abFuel; this.abLock = false; this.abOn = false; this.abK = 0;
     this.lock.t = null; this.lock.p = 0; this.lock.locked = false; this.invUntil = now + 3000; this.rate.set(0, 0, 0);
     this.ctrl.thr = 0.85; this.ctrl.ab = false; this.lastHitBy = null; this.lastHitT = -1e9; this.g = 1; this.flash = 0;
     this.gunIdle = 0; this.firing = false;
@@ -181,6 +182,8 @@ class Plane {
     this.look.firedR = d.wR ? Math.max(0, d.wR.n - this.mR) : 0;
     this.look.firedI = d.wI ? Math.max(0, d.wI.n - this.mI) : 0;
     this.flash = Math.max(0, this.flash - dt * 4); this.look.flash = this.flash;
+    // the afterburner lights up over ~0.3 s and dies down a little faster (plume length and brightness follow)
+    this.abK = this.alive && this.abOn ? Math.min(1, this.abK + dt / 0.3) : Math.max(0, this.abK - dt / 0.22);
     if (!this.alive) return;
     // wingtip vortices when pulling hard
     if (Math.abs(this.g) > 6 && this.speed > 90 && FX.budget > 0.4) {
@@ -218,6 +221,11 @@ class Plane {
         case 'rud': ang = yi * 18 * DEG; break;
         case 'swing': ang = -bn.side * (this.sweep - (bn.rest !== undefined ? bn.rest : 20)) * DEG; break; // F-14 wings
         case 'prop': ang = this.propA; break;
+        case 'hide': { // parts of the source model the game does not use: folded to a point inside the airframe
+          const o = B.subarray(k * 16, k * 16 + 16); o.fill(0);
+          o[12] = bn.pivot[0]; o[13] = bn.pivot[1]; o[14] = bn.pivot[2]; o[15] = 1;
+          continue;
+        }
       }
       _q.axisAngle(bn.axis[0], bn.axis[1], bn.axis[2], ang);
       const p = bn.pivot, rp = _a.set(p[0], p[1], p[2]).rot(_q);
@@ -284,7 +292,8 @@ class Plane {
     return w <= 1 || r * R.cam.px / w > px;
   }
   drawFlames(now) {
-    if (!this.alive || !R.visible(this.pos, this.model.radius)) return;
+    // twice the radius: the plume reaches well past the tail
+    if (!this.alive || !R.visible(this.pos, this.model.radius * 2)) return;
     const st = this.st, m = this.vm || this.model;
     if (st.prop) {
       for (const p of m.props) {
@@ -294,20 +303,26 @@ class Plane {
       }
       return;
     }
-    const thr = this.local ? this.ctrl.thr : 0.85, ab = this.abOn;
-    const inten = ab ? 1 : clamp((thr - 0.55) * 0.9, 0, 0.4);
+    // remote aircraft don't send their throttle; dry thrust is a faint heat glow that grows with it
+    const thr = this.local ? this.ctrl.thr : 0.85, dry = clamp((thr - 0.55) / 0.45, 0, 1), k = smooth(0, 1, this.abK);
+    const inten = lerp(0.4 * dry, 1, k);
     if (inten <= 0.01) return;
-    const pal = FLAME_PAL[this.def.flame] || FLAME_PAL.us;
-    for (const f of m.flames) {
+    const pal = FLAME_PAL[this.def.flame] || FLAME_PAL.us, t = now / 1000;
+    for (let i = 0; i < m.flames.length; i++) {
+      const f = m.flames[i], sd = this.flSeed + i * 2.3;
       _a.set(f.p[0], f.p[1], f.p[2]).rot(this.q).add(this.pos);
       M4.fromQP(FLAME_M, this.q, _a);
-      // afterburner: long plume with shock diamonds ~1.3 plume diameters apart; dry: short, faint
-      const r = Math.max(f.r, 0.3), L = r * (ab ? 12.5 + Math.sin(now * 0.05) * 0.8 : 4.0), w = r * (ab ? 1.08 : 0.8);
-      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.6));
-      // the glowing nozzle seen from behind
+      _b.subV(R.cam.pos, _a).irot(this.q);
+      // afterburner: long plume with shock diamonds ~1.2 nozzle diameters apart; dry: short; slow, small length flicker
+      const r = Math.max(f.r, 0.3), w = r * lerp(0.85, 1.02, k);
+      const L = r * lerp(2.2 + 2 * dry, 12.5, k) * (1 + 0.035 * Math.sin(t * 8.7 + sd) + 0.02 * Math.sin(t * 14.9 + sd * 1.9));
+      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.4), k, _b, (t * 14 - sd) % TAU);
+      // the glowing nozzle seen from behind (it would be hidden inside the nozzle when seen from the side)
+      const back = smooth(0.2, 0.5, _b.z / (_b.len() || 1));
+      if (back <= 0) continue;
       _a.set(f.p[0], f.p[1], f.p[2] + 0.02).rot(this.q).add(this.pos);
       M4.fromQP(FLAME_M, this.q, _a);
-      R.drawFlame(SHARED.disc, FLAME_M, f.r * 0.98, f.r * 0.98, 1, ab ? 0.85 : inten * 0.9, 2, pal);
+      R.drawFlame(SHARED.disc, FLAME_M, f.r * 0.98, f.r * 0.98, 1, lerp(0.15 + 0.35 * dry, 0.85, k) * back, 2, pal);
     }
   }
 }

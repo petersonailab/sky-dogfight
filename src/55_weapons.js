@@ -14,23 +14,37 @@ const W = {
     if (this.dead.size > 120) for (const [k, t] of this.dead) if (now - t > 8000) this.dead.delete(k);
   },
   // ---------- guns ----------
+  // Two kinds of gun: ammunition that refills while the trigger rests, or (st.heat) no ammunition limit but the
+  // barrel heats up — after st.heat.t seconds of fire it overheats and is locked for st.heat.lock seconds;
+  // otherwise it cools st.heat.cool (fraction) per second. st.spin: a Gatling gun's spin-up time to full rate.
   guns(pl, dt, now, visualOnly) {
-    const st = pl.st;
-    const want = visualOnly ? pl.firing : (pl.ctrl.gun && pl.ammo >= 1 && pl.alive && Game.canFight());
+    const st = pl.st, H = st.heat;
+    if (H && !visualOnly && pl.gunLock > 0) { pl.gunLock = Math.max(0, pl.gunLock - dt); pl.heat = pl.gunLock / H.lock; }
+    const ready = H ? pl.gunLock <= 0 : pl.ammo >= 1;
+    const want = visualOnly ? pl.firing : (pl.ctrl.gun && ready && pl.alive && Game.canFight());
     if (!visualOnly) pl.firing = want;
     if (!want || !pl.alive) {
-      pl.gunT = 0;
-      if (!visualOnly) { pl.gunIdle += dt; if (pl.gunIdle > 2.5) pl.ammo = Math.min(st.ammo, pl.ammo + st.ammo * 0.05 * dt); }
+      pl.gunT = 0; pl.spin = Math.max(0, pl.spin - dt * 1.5);
+      if (!visualOnly) {
+        if (H) { if (pl.gunLock <= 0) pl.heat = Math.max(0, pl.heat - H.cool * dt); }
+        else { pl.gunIdle += dt; if (pl.gunIdle > 2.5) pl.ammo = Math.min(st.ammo, pl.ammo + st.ammo * 0.05 * dt); }
+      }
       return;
     }
     pl.gunIdle = 0; pl.gunT += dt;
-    const iv = 1 / st.gunRate, heavy = st.gunDmg > 11 || (st.prop && st.gunDmg > 4);
+    let rate = st.gunRate;
+    if (st.spin) { pl.spin = Math.min(1, pl.spin + dt / st.spin); rate *= Math.max(0.15, pl.spin); }
+    const iv = 1 / rate, heavy = st.gunDmg > 11 || (st.prop && st.gunDmg > 4);
     let shots = 0;
     while (pl.gunT >= iv && shots < 4) {
       pl.gunT -= iv; shots++;
-      if (!visualOnly) { if (pl.ammo < 1) break; pl.ammo--; }
+      if (!visualOnly && !H) { if (pl.ammo < 1) break; pl.ammo--; }
       this.bullet(pl, !visualOnly);
       if (pl === Game.me) AU.gun(0, heavy); else if (Game.view) AU.gun(pl.pos.dist(Game.view.pos), heavy);
+    }
+    if (H && !visualOnly) {
+      pl.heat += dt / H.t;
+      if (pl.heat >= 1) { pl.heat = 1; pl.gunLock = H.lock; pl.firing = false; }
     }
   },
   bullet(pl, local) {
@@ -39,7 +53,7 @@ const W = {
     const f = pl.fwd(_a), gp = _b.set(g[0], g[1], g[2]).rot(pl.q);
     const conv = 380, spd = pl.st.bullet || 1000;
     const dir = _c.copy(f).scale(conv).sub(Math.abs(g[0]) > 1 ? _d.set(gp.x, gp.y, gp.z) : _d.set(0, 0, 0)).norm();
-    const sp = (pl.st.prop ? 0.5 : 0.35) * DEG;
+    const sp = (pl.st.spread ? pl.st.spread / 2 : pl.st.prop ? 0.5 : 0.35) * DEG; // st.spread: full cone angle
     dir.x += rnd(-sp, sp); dir.y += rnd(-sp, sp); dir.z += rnd(-sp, sp); dir.norm();
     b.x = pl.pos.x + gp.x; b.y = pl.pos.y + gp.y; b.z = pl.pos.z + gp.z;
     b.vx = pl.vel.x + dir.x * spd; b.vy = pl.vel.y + dir.y * spd; b.vz = pl.vel.z + dir.z * spd;
@@ -121,7 +135,7 @@ const W = {
       }
       if (best) { L.t = best; L.p = 0; L.locked = false; }
     }
-    if (L.t) { L.p = Math.min(1, L.p + dt / M.lockT); L.locked = L.p >= 1; }
+    if (L.t) { L.p = Math.min(1, L.p + dt / lockTime(M, L.t.pos.dist(pl.pos))); L.locked = L.p >= 1; }
   },
   // ---------- missiles ----------
   fire(pl, now) {

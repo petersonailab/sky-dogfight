@@ -5,6 +5,7 @@ fins sit in an X (as on a rail launcher), scaled to its real length, simplified,
 (solid-colour materials are baked into one shared palette texture). The header lists, per missile, the group range
 to draw, the length, body radius and fin span.
 usage: put the source files in tools/hd/msl/ (aim120.glb, nato_pack.glb, rus_pack.glb), then python3 tools/hd/build_msl.py [--preview]
+or, to add missiles to the existing models/missiles.bin: python3 tools/hd/build_msl.py --append p2_aim7 p2_aim9 p2_r77 (pack2.glb in tools/hd/msl/)
 """
 import sys, os, io, re, json, struct, subprocess, tempfile
 import numpy as np
@@ -16,6 +17,8 @@ OUT = os.environ.get('MSL_OUT', os.path.join(HERE, '..', '..', 'models'))
 MSIMP = os.path.join(HERE, 'msimp')
 
 CR_NATO = dict(title='Missiles', author='Civorsky', license='CC BY 4.0', url='https://sketchfab.com/3d-models/missiles-37899978144a45d0bd03c3538957b145')
+CR_P2 = dict(title='Missile & Bomb Collection - Fighter Jets - Free', author='bohmerang', license='CC BY-NC-SA 4.0',
+             url='https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47')
 CR_RUS = dict(title='Russian weapon pack', author='Rhine_Lab_Muelsyse', license='CC BY 4.0', url='https://sketchfab.com/3d-models/russian-weapon-pack-af00b7135a184ecfb2812a0e54458a8a')
 SRC = {
     # key: file, how to pick the parts, which way the nose points, real length (m)
@@ -35,6 +38,11 @@ SRC = {
     'r27r': dict(file='msl/rus_pack.glb', node=r'^ru_r-27r', axis='x', L=4.08, tex=512, credit=CR_RUS),
     'r73': dict(file='msl/rus_pack.glb', node=r'^ru_r-73', axis='x', L=2.9, tex=512, credit=CR_RUS),
     'r77': dict(file='msl/rus_pack.glb', node=r'^ru_r-77$|^ru_r-77_', axis='x', L=3.6, tex=512, credit=CR_RUS),
+    # missile & bomb collection (msl/pack2.glb): every weapon is its own node, nose already toward -z
+    'p2_aim7': dict(file='msl/pack2.glb', node=r'^AIM-7 Sparrow', axis='-z', L=3.66, tex=512, credit=CR_P2),
+    'p2_aim9': dict(file='msl/pack2.glb', node=r'^AIM-9 Sidewinder', axis='-z', L=2.87, tex=512, credit=CR_P2),
+    'p2_r77': dict(file='msl/pack2.glb', node=r'^R-77_', axis='-z', L=3.6, tex=512, credit=CR_P2),
+    'p2_r27r': dict(file='msl/pack2.glb', node=r'^R-27 \(2\)', axis='-z', L=4.08, tex=512, credit=CR_P2),
 }
 USE = sys.argv[1:] if len(sys.argv) > 1 and not sys.argv[1].startswith('--') else ['aim120c', 'aim9l', 'aim54c', 's530d', 'aim120d', 'r27r', 'r73']
 TARGET = 2600   # triangles per missile at most
@@ -84,16 +92,24 @@ def extract(key):
     # nose to -Z
     if s['axis'] == 'x':      # nose at +x
         V = np.stack([V[:, 2], V[:, 1], -V[:, 0]], 1); N = np.stack([N[:, 2], N[:, 1], -N[:, 0]], 1)
-    else:                     # nose at +z
+    elif s['axis'] == 'z':    # nose at +z
         V = np.stack([-V[:, 0], V[:, 1], -V[:, 2]], 1); N = np.stack([-N[:, 0], N[:, 1], -N[:, 2]], 1)
+    # axis '-z': nose already at -z
     c = (V.min(0) + V.max(0)) / 2
     V = V - c
     L0 = V[:, 2].max() - V[:, 2].min()
     sc = s['L'] / L0 if s.get('L') else 1.0
     V = V * sc
-    # body radius (median radius in the middle half) and fin roll: put the fins at 45 deg
-    r = np.hypot(V[:, 0], V[:, 1]); zt = (V[:, 2] - V[:, 2].min()) / (V[:, 2].max() - V[:, 2].min())
-    body = float(np.median(r[(zt > 0.3) & (zt < 0.7)]))
+    # body radius: the most common distance from the axis of points spread over the surface of the middle half
+    # (sampled on the triangles — a plain tube may have no vertices there — and the peak, so wings don't pull it out)
+    r = np.hypot(V[:, 0], V[:, 1])
+    rng = np.random.default_rng(7)
+    P = V[F]; area = np.linalg.norm(np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0]), axis=1) / 2
+    k = rng.choice(len(F), size=40000, p=area / area.sum()); u = rng.random((40000, 2)); u[u.sum(1) > 1] = 1 - u[u.sum(1) > 1]
+    S = P[k, 0] + u[:, :1] * (P[k, 1] - P[k, 0]) + u[:, 1:] * (P[k, 2] - P[k, 0])
+    zs = (S[:, 2] - V[:, 2].min()) / (V[:, 2].max() - V[:, 2].min()); rs = np.hypot(S[:, 0], S[:, 1])[(zs > 0.3) & (zs < 0.7)]
+    hist, edges = np.histogram(rs, bins=240, range=(0, rs.max() + 1e-6))
+    body = float((edges[np.argmax(hist)] + edges[np.argmax(hist) + 1]) / 2)
     fin = r > body * 1.8
     if fin.sum() > 8:
         ang = np.arctan2(V[fin, 1], V[fin, 0]) * 4.0    # 4-fold symmetry
@@ -170,7 +186,24 @@ def simplify(pos, attrs, F, target, err=0.01, opts=0):
         return np.frombuffer(b, np.uint32, n, 8).reshape(-1, 3).astype(np.int64)
 
 
-def build(keys):
+def load_sdm(path):
+    """decode an SDM1 file back into float arrays (positions, normals, uv), indices, groups and encoded textures"""
+    b = open(path, 'rb').read()
+    assert b[:4] == b'SDM1', path
+    hl = struct.unpack_from('<I', b, 4)[0]
+    H = json.loads(b[8:8 + hl]); base = 8 + hl; nv = H['nv']
+    vb = np.frombuffer(b, np.uint8, nv * 16, base).reshape(nv, 16)
+    V = np.array(H['pc']) + vb[:, 0:6].copy().view(np.int16).astype(np.float64) / 32767.0 * np.array(H['ph'])
+    N = vb[:, 8:11].copy().view(np.int8).astype(np.float64) / 127.0
+    UV = np.array(H['uvmin']) + vb[:, 12:16].copy().view(np.uint16).astype(np.float64) / 65535.0 * np.array(H['uvrange'])
+    idx = np.frombuffer(b, np.uint32 if H['idx32'] else np.uint16, H['ni'], base + H['ioff']).astype(np.int64)
+    tex = [dict(data=b[base + t['off']: base + t['off'] + t['len']], w=t['w'], h=t['h'], png=t.get('mime') == 'image/png') for t in H['tex']]
+    return dict(H=H, V=V, N=N, UV=UV, idx=idx, tex=tex)
+
+
+def build(keys, base=None):
+    """base: a decoded missiles.bin (load_sdm) whose missiles are kept as they are and the new keys appended
+    (the source files of the first missiles are not in the repository)"""
     palette = []          # solid colours (rgb 0..1)
     pal_index = {}
     def pal(c):
@@ -181,6 +214,12 @@ def build(keys):
     textures = []         # encoded images
     allV, allN, allUV, allF, groups, info = [], [], [], [], [], {}
     voff = 0; ioff = 0
+    if base:
+        textures.extend(base['tex'])
+        allV.append(base['V']); allN.append(base['N']); allUV.append(base['UV']); allF.append(base['idx'])
+        groups.extend(dict(g) for g in base['H']['groups']); info.update(base['H']['meta']['missiles'])
+        voff = len(base['V']); ioff = len(base['idx'])
+        keys = [k for k in keys if k not in info]
     PAL_N = 16            # palette grid (16 x 16 cells of 4 px = 64 x 64 texture)
     pending_pal_groups = []
     for key in keys:
@@ -268,7 +307,8 @@ def build(keys):
         pimg[y:y + 4, x:x + 4] = c
     bio = io.BytesIO(); Image.fromarray(pimg).save(bio, 'PNG')
     pal_tex = len(textures)
-    textures.append(dict(data=bio.getvalue(), w=S, h=S, png=True))
+    if palette or not base:
+        textures.append(dict(data=bio.getvalue(), w=S, h=S, png=True))
     for g in groups:
         if g['tex'] == 'PAL':
             g['tex'] = pal_tex
@@ -294,7 +334,7 @@ def build(keys):
         dd = t['data']; pad = (4 - len(dd) % 4) % 4
         tex_meta.append(dict(off=off, len=len(dd), w=t['w'], h=t['h'], alpha=False, mime='image/png' if t.get('png') else 'image/webp', nearest=bool(t.get('png'))))
         blobs.append(dd + b'\0' * pad); off += len(dd) + pad
-    credits = {}
+    credits = {c['title']: c for c in (base['H']['credit'] if base else [])}
     for k in keys:
         c = SRC[k]['credit']; credits.setdefault(c['title'], c)
     header = dict(v=1, id='missiles', nv=int(nv), ni=int(idx.size), idx32=bool(idx32), vbytes=len(blobs[0]), ioff=len(blobs[0]),
@@ -314,5 +354,7 @@ def build(keys):
 if __name__ == '__main__':
     if '--preview' in sys.argv:
         preview_sheet([k for k in SRC], os.path.join(HERE, 'msl_preview.png'))
+    elif '--append' in sys.argv:   # python3 tools/hd/build_msl.py --append p2_aim7 p2_aim9 ...: add to models/missiles.bin
+        build([a for a in sys.argv[1:] if not a.startswith('--')], base=load_sdm(os.path.join(OUT, 'missiles.bin')))
     else:
         build(USE)
