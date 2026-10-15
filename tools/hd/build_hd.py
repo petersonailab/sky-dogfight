@@ -83,7 +83,24 @@ CFG = {
     # stores the game does not use are folded away when drawn ('hide' bones), not deleted
     'f15': dict(yaw=90, tex=2048, credit=dict(title='McDonnell Douglas F-15 Strike Eagle', author='andertan', license='CC BY-ND 4.0',
                                               url='https://sketchfab.com/3d-models/mcdonnell-douglas-f-15-strike-eagle-b7bf2e523aee40f9b048c9f7863fedc8'),
-                stores=[], bones=[]),
+                # air-to-air fit: AIM-7s on the conformal tanks' undersides (front pair, rear pair) and under the wing pylons,
+                # AIM-9s at the ends of the pylons' side rails, where the model's own missiles sit (y = their centre height)
+                stores=[S('rad', -1.5, -0.8), S('rad', 1.5, -0.8), S('rad', -1.5, 3.4), S('rad', 1.5, 3.4), S('rad', -2.8, 1.4), S('rad', 2.8, 1.4),
+                        S('ir', -3.19, 0.745, y=-0.12), S('ir', 3.19, 0.745, y=-0.12), S('ir', -2.41, 0.745, y=-0.12), S('ir', 2.41, 0.745, y=-0.12)],
+                # the inner opening of the round nozzles (the outer petals are 0.37..0.45 m)
+                flames=[dict(p=[-0.709, -0.118, 7.62], r=0.3), dict(p=[0.709, -0.118, 7.62], r=0.3)],
+                # stabilators: the 9 triangles of each flat (one-sided) tailplane; ailerons: the upper skin panel behind the
+                # hinge line and the trailing-edge strip (the lower skin is one big triangle across the hinge and stays).
+                # The fins are a few big triangles from leading to trailing edge: no rudders.
+                # hide: the model's AIM-120s / AIM-9s and fins, the bombs and laser-guided bombs on the conformal tanks with their
+                # racks, the bomb under each wing pylon (its triangles only: the pylon is the same part, other materials),
+                # the centreline tank and its rack
+                bones=[dict(kind='stab', side=s, xsign=s, tbox=dict(x=(1.8, 4.4), y=(-0.227, -0.219), z=(5.9, 9.4))) for s in (-1, 1)]
+                     + [dict(kind='ail', side=s, xsign=s, tbox=dict(y=(0.22, 0.33), poly=[(3.88, 4.2), (5.62, 4.85), (5.55, 5.23), (3.86, 4.86)])) for s in (-1, 1)]
+                     + [dict(kind='hide', side=0, pivot=(0.0, -0.17, 0.5),
+                             cbox=[dict(x=(2.2, 2.52), y=(-0.27, 0.05), z=(-0.5, 2.2)), dict(x=(3.05, 3.35), y=(-0.27, 0.05), z=(-0.5, 2.2)),
+                                   dict(x=(1.6, 2.1), y=(-1.52, -0.62), z=(-1.2, 6.1)), dict(x=(0.0, 0.2), y=(-1.57, -0.67), z=(-2.5, 3.7), mintris=1)],
+                             tbox=dict(x=(2.45, 3.1), y=(-0.82, -0.17), z=(-0.7, 3.5), mat=r'^(F15_R|Not_so_dark|darkenss)'))]),
 
     # ---- WWII ----
     'p51': dict(yaw=180, pitch=-12.5, tex=1024, credit=dict(title='P-51 Mustang', author='ACshibu', license='CC BY-NC 4.0',
@@ -224,6 +241,8 @@ def build(name):
         for tb in (bc['tbox'] if isinstance(bc.get('tbox'), list) else [bc['tbox']] if 'tbox' in bc else []):
             xx = cen[:, 0] if tb.get('signed') else np.abs(cen[:, 0])
             mm = np.ones(len(F), bool)
+            if 'mat' in tb:   # only triangles of the materials matching this regex (e.g. a store fused to its pylon)
+                mm &= np.array([bool(re.search(tb['mat'], material_info(js, p['mat'])['name'] or '')) for p in prims])[G]
             for k, col in (('x', xx), ('y', cen[:, 1]), ('z', cen[:, 2])):
                 if k in tb:
                     mm &= (col >= tb[k][0]) & (col <= tb[k][1])
@@ -293,7 +312,8 @@ def build(name):
     used_v = np.unique(Fk)
     VK = V[used_v]
 
-    TP = V[Fk]  # kept triangles (n,3,3)
+    hide = [bi for bi, bc in enumerate(cfg.get('bones', []), start=1) if bc['kind'] == 'hide']
+    TP = V[Fk[~np.isin(Bk, hide)]]  # kept triangles (n,3,3) that are drawn: folded-away stores are nothing to hang from
 
     def surf_low(x, z):
         """lowest surface hit by a vertical ray at (x, z), or None"""
@@ -325,7 +345,7 @@ def build(name):
         L, r = MSL[st['k']]
         y_m = mount_y(st['x'], st['z'], L * 0.3)
         gap = 0.32 + 0.14 if st.get('pylon') else 0.015
-        y = y_m - r - gap
+        y = st['y'] if 'y' in st else y_m - r - gap   # y given: centre height, e.g. beside a side-mounted launch rail
         stores.append(dict(k=st['k'], x=round(st['x'], 3), y=round(y, 3), z=round(st['z'] - L / 2, 3), pylon=bool(st.get('pylon'))))
     # flames: refine the procedural nozzle positions on the real geometry
     flames = []
