@@ -2,13 +2,16 @@
 // Textured models converted from third-party GLB files (credits in each file's header and the README).
 // They are optional: they stream in after the game starts, and until one has arrived (or if the files are
 // missing, e.g. inside the Claude artifact) the procedural model is drawn instead.
-const HD_IDS = ['f16', 'f22', 'f14', 'su27', 'typhoon', 'm2000', 'mig21', 'p51', 'spit', 'bf109', 'missiles'];
+const HD_IDS = ['f16', 'f22', 'f15', 'f14', 'su27', 'su30', 'typhoon', 'rafale', 'm2000', 'mig21', 'p51', 'spit', 'bf109', 'missiles'];
 const HD_CREDIT = {
   f16: ['F16-C Falcon', 'Carlos.Maciel', 'CC BY 4.0'],
-  f22: ['F22 RAPTOR', 'sxnneh', 'Sketchfab Standard'],
+  f22: ['Lockheed Martin F-22 "Raptor"', 'andertan', 'CC BY 4.0'],
+  f15: ['McDonnell Douglas F-15 Strike Eagle', 'andertan', 'CC BY-ND 4.0'],
   f14: ['F14', 'manilov.ap', 'CC BY 4.0'],
   su27: ['Sukhoi Su-27M (USSR)', '42manako', 'CC BY-NC 4.0'],
+  su30: ['Sukhoi Su-30 flanker c', 'andertan', 'CC BY 4.0'],
   typhoon: ['Eurofighter Typhoon - Fighter Jet - Free', 'bohmerang', 'CC BY-NC-SA 4.0'],
+  rafale: ['Dassault Rafale', 'andertan', 'CC BY 4.0'],
   m2000: ['Mirage 2000-5F', 'Jeyhun1985', 'CC BY 4.0'],
   mig21: ['1972 MiG-21bis', 'OUTPISTON', 'CC BY-NC-SA 4.0'],
   p51: ['P-51 Mustang', 'ACshibu', 'CC BY-NC 4.0'],
@@ -133,6 +136,7 @@ const MSL_CREDIT = {
 const MSL_HD = {
   aim120: ['aim120c'], aim9m: ['aim9l', 0, [0.8, 0.82, 0.84]], aim54: ['aim54c'], meteor: ['aim120d'], irist: ['aim9l'],
   r27r: ['r27r'], r73: ['r73'], s530d: ['s530d'], magic: ['aim9l', 2.75], r3r: ['aim9l', 3.1, [0.74, 0.76, 0.77]], r60: ['r73', 2.09],
+  micair: ['aim120c', 3.1], r77: ['r27r', 3.6], aim7: ['aim120c', 3.66], aim9m15: ['aim9l', 0, [0.8, 0.82, 0.84]],
 };
 
 function decodeImage(blob) {

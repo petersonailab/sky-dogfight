@@ -7,7 +7,7 @@
 // (two brokers, or relay + direct) are dropped.
 const PAGE_PARAMS = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(''); } })();
 const WEB_BROKERS = (PAGE_PARAMS.get('mqtt') || 'wss://broker.emqx.io:8084/mqtt,wss://broker.hivemq.com:8884/mqtt').split(',').map(s => s.trim()).filter(Boolean);
-const WEB_TOPIC = 'skydogfight/v4/';
+const WEB_TOPIC = 'skydogfight/v5/';
 const WEB_ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
 const TXT_ENC = new TextEncoder(), TXT_DEC = new TextDecoder();
 

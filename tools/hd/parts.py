@@ -6,7 +6,8 @@ from glb import load_scene, material_info
 from frame import LEN, rot_y, rot_x, best_yaw
 from preview import tri_colors
 
-YAW = {'f16': 0, 'f22': 0, 'f14': 64, 'su27': 90, 'typhoon': 90, 'mig21': 180, 'm2000': 180, 'p51': 180, 'spit': 180, 'bf109': 90}
+YAW = {'f16': 0, 'f22': -90, 'f14': 64, 'su27': 90, 'typhoon': 90, 'mig21': 180, 'm2000': 180, 'p51': 180, 'spit': 180, 'bf109': 90,
+       'rafale': -90, 'su30': 90, 'f15': 90}
 # skinned models: joint poses to apply (Bf 109: its own 'FakeFly' animation pose = level attitude, gear folded)
 POSE = {'bf109': {'Gear_L_05': {'rotation': [0.7431, 0, 0, 0.6691]}, 'Gear_R_07': {'rotation': [-0.7431, 0, 0, 0.6691]},
                   'Body_01': {'rotation': [0, 0.6996, 0, 0.7145]}}}

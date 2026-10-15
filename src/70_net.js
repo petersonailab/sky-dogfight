@@ -4,7 +4,7 @@
 //  * 'web':    WebNet (public MQTT relay + WebRTC direct links) everywhere else, e.g. GitHub Pages
 // Each player sends absolute state ~20x/s; short-lived event rings (hits, deaths, flares,
 // detonations) ride along with ids so receivers can de-duplicate.
-const PROTO = 4;
+const PROTO = 5;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const RING_TTL = 3200;
 

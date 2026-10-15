@@ -3,7 +3,8 @@ import numpy as np
 from glb import load_scene
 
 # real-world lengths used by the game (AC_DEFS[].len)
-LEN = {'f16': 15.06, 'f22': 18.92, 'f14': 19.1, 'su27': 21.9, 'typhoon': 15.96, 'm2000': 14.36, 'mig21': 14.5, 'p51': 9.83, 'spit': 9.47, 'bf109': 8.6}
+LEN = {'f16': 15.06, 'f22': 18.92, 'f14': 19.1, 'su27': 21.9, 'typhoon': 15.96, 'm2000': 14.36, 'mig21': 14.5, 'p51': 9.83, 'spit': 9.47, 'bf109': 8.6,
+       'rafale': 15.27, 'su30': 21.935, 'f15': 19.43}
 
 
 def rot_y(deg):

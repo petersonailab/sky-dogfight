@@ -13,7 +13,7 @@ class Plane {
     this.rate = new V3();
     this.ctrl = { pitch: 0, roll: 0, yaw: 0, thr: 0.85, ab: false, gun: false, msl: false, flare: false, swap: false };
     this.alive = false; this.hp = 100; this.kills = 0; this.deaths = 0;
-    this.ammo = 0; this.gunT = 0; this.mslCd = 0; this.gunIdle = 0;
+    this.ammo = 0; this.gunT = 0; this.mslCd = 0; this.gunIdle = 0; this.heat = 0; this.gunLock = 0; this.spin = 0;
     this.mR = 0; this.mI = 0; this.reloadR = 0; this.reloadI = 0; this.wsel = 'rad';
     this.flareCdT = 0; this.flareT = 0; this.abFuel = 0; this.abLock = false; this.abOn = false;
     this.lock = { t: null, p: 0, locked: false, w: null };
@@ -48,7 +48,7 @@ class Plane {
     const st = this.st, P = this.perf, d = this.def;
     this.pos.copy(pos); this.q.copy(q); this.speed = Math.min(P.vmax, P.vc);
     this.fwd(this.vel).scale(this.speed);
-    this.hp = st.hp; this.alive = true; this.wreck = null; this.ammo = st.ammo;
+    this.hp = st.hp; this.alive = true; this.wreck = null; this.ammo = st.ammo || 0; this.heat = 0; this.gunLock = 0; this.spin = 0;
     this.mR = d.wR ? d.wR.n : 0; this.mI = d.wI ? d.wI.n : 0; this.reloadR = 0; this.reloadI = 0;
     if (!this.curW()) this.wsel = d.wR ? 'rad' : 'ir';
     this.flareCdT = 0; this.flareT = 0; this.abFuel = P.abFuel; this.abLock = false; this.abOn = false;
@@ -218,6 +218,11 @@ class Plane {
         case 'rud': ang = yi * 18 * DEG; break;
         case 'swing': ang = -bn.side * (this.sweep - (bn.rest !== undefined ? bn.rest : 20)) * DEG; break; // F-14 wings
         case 'prop': ang = this.propA; break;
+        case 'hide': { // parts of the source model the game does not use: folded to a point inside the airframe
+          const o = B.subarray(k * 16, k * 16 + 16); o.fill(0);
+          o[12] = bn.pivot[0]; o[13] = bn.pivot[1]; o[14] = bn.pivot[2]; o[15] = 1;
+          continue;
+        }
       }
       _q.axisAngle(bn.axis[0], bn.axis[1], bn.axis[2], ang);
       const p = bn.pivot, rp = _a.set(p[0], p[1], p[2]).rot(_q);

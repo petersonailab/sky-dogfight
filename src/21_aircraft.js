@@ -6,24 +6,39 @@
 // speed km/h, lock range km, angles in degrees, times in seconds.
 // fov0: the target has to be inside this cone (half-angle) to START a lock;
 // fov1: while locking / locked the target has to stay inside this cone.
+// lockTr: [km, s, km, s] — lock time that grows with range (between the two points, held outside them).
+// Lock ranges by rule: every radar missile 11.5 km, every short-range IR missile 5 km.
+const LOCK_RAD = 11.5, LOCK_IR_SHORT = 5.0;
 const MISSILES = {
-  aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', type: 'rad', cls: '中程', lock: 7.5, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 23, lockT: 1.5, shape: 'rad' },
-  aim9m: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: 2.8, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  aim54: { name: 'AIM-54 Phoenix', short: 'AIM-54', type: 'rad', cls: '遠程', lock: 12.0, dmg: 180, spd: 6120, accT: 1.5, turn: 15, blast: 20, fov0: 5, fov1: 34, lockT: 1.5, shape: 'big' },
-  meteor: { name: 'Meteor', short: 'METEOR', type: 'rad', cls: '遠程', lock: 12.0, dmg: 180, spd: 5400, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 35, lockT: 1.5, shape: 'rad' },
-  irist: { name: 'IRIS-T', short: 'IRIS-T', type: 'ir', cls: '近程', lock: 2.8, dmg: 131, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  r27r: { name: 'R-27R Alamo', short: 'R-27R', type: 'rad', cls: '中程', lock: 7.1, dmg: 149, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 5, fov1: 10, lockT: 1.0, shape: 'rad' },
-  r73: { name: 'R-73 Archer', short: 'R-73', type: 'ir', cls: '近程', lock: 2.8, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
-  s530d: { name: 'Super 530D', short: 'S530D', type: 'rad', cls: '中程', lock: 6.6, dmg: 167, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 7, fov1: 7, lockT: 0.6, shape: 'rad' },
-  magic: { name: 'R.550 Magic', short: 'MAGIC', type: 'ir', cls: '近程', lock: 2.5, dmg: 140, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 23, lockT: 1.5, shape: 'rad' },
+  aim9m: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  aim54: { name: 'AIM-54 Phoenix', short: 'AIM-54', type: 'rad', cls: '遠程', lock: LOCK_RAD, dmg: 180, spd: 6120, accT: 1.5, turn: 15, blast: 20, fov0: 5, fov1: 34, lockT: 1.5, shape: 'big' },
+  meteor: { name: 'Meteor', short: 'METEOR', type: 'rad', cls: '遠程', lock: LOCK_RAD, dmg: 180, spd: 5400, accT: 1.0, turn: 15, blast: 20, fov0: 6, fov1: 35, lockT: 1.5, shape: 'rad' },
+  irist: { name: 'IRIS-T', short: 'IRIS-T', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 131, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  r27r: { name: 'R-27R Alamo', short: 'R-27R', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 149, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 5, fov1: 10, lockT: 1.0, shape: 'rad' },
+  r73: { name: 'R-73 Archer', short: 'R-73', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 132, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  s530d: { name: 'Super 530D', short: 'S530D', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 167, spd: 4914, accT: 1.0, turn: 15, blast: 15, fov0: 7, fov1: 7, lockT: 0.6, shape: 'rad' },
+  magic: { name: 'R.550 Magic', short: 'MAGIC', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 140, spd: 3402, accT: 0.6, turn: 15, blast: 11, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
+  // Rafale: medium-range IR missile, much more agile than the others; lock time grows with range
+  micair: { name: 'MICA IR', short: 'MICA IR', type: 'ir', cls: '中程', lock: 11.5, dmg: 152, spd: 4914, accT: 1.0, turn: 47, blast: 16, fov0: 10, fov1: 20, lockT: 1.1, lockTr: [2, 1.1, 7, 2.0], shape: 'rad' },
+  r77: { name: 'R-77 Adder', short: 'R-77', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 140, spd: 4680, accT: 1.0, turn: 15, blast: 20, fov0: 5, fov1: 20, lockT: 1.6, shape: 'rad' },
+  aim7: { name: 'AIM-7 Sparrow', short: 'AIM-7', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 162, spd: 6084, accT: 1.0, turn: 15, blast: 15, fov0: 4, fov1: 9, lockT: 1.0, shape: 'rad' },
+  // the F-15's Sidewinders come with their own figures (less damage, smaller blast than the F-16's)
+  aim9m15: { name: 'AIM-9M Sidewinder', short: 'AIM-9M', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 121, spd: 3402, accT: 0.6, turn: 15, blast: 10, fov0: 7, fov1: 15, lockT: 1.3, shape: 'ir' },
   // MiG-21 weapons: estimated in the same style (no figures were supplied for them)
-  r3r: { name: 'R-3R', short: 'R-3R', type: 'rad', cls: '中程', lock: 5.0, dmg: 125, spd: 3960, accT: 1.0, turn: 15, blast: 12, fov0: 5, fov1: 9, lockT: 1.2, shape: 'rad', est: true },
-  r60: { name: 'R-60', short: 'R-60', type: 'ir', cls: '近程', lock: 2.5, dmg: 118, spd: 3060, accT: 0.5, turn: 15, blast: 9, fov0: 7, fov1: 15, lockT: 1.2, shape: 'ir', est: true },
+  r3r: { name: 'R-3R', short: 'R-3R', type: 'rad', cls: '中程', lock: LOCK_RAD, dmg: 125, spd: 3960, accT: 1.0, turn: 15, blast: 12, fov0: 5, fov1: 9, lockT: 1.2, shape: 'rad', est: true },
+  r60: { name: 'R-60', short: 'R-60', type: 'ir', cls: '近程', lock: LOCK_IR_SHORT, dmg: 118, spd: 3060, accT: 0.5, turn: 15, blast: 9, fov0: 7, fov1: 15, lockT: 1.2, shape: 'ir', est: true },
 };
 for (const id in MISSILES) {
   const m = MISSILES[id];
   m.id = id; m.v = m.spd / 3.6; m.range = m.lock * 1000; m.turnR = m.turn * DEG; m.fov0R = m.fov0 * DEG; m.fov1R = m.fov1 * DEG;
   m.life = m.range / m.v * 1.6 + m.accT + 2.5;
+}
+// seconds to lock a target `dist` metres away
+function lockTime(m, dist) {
+  const L = m.lockTr;
+  if (!L) return m.lockT;
+  return lerp(L[1], L[3], clamp((dist / 1000 - L[0]) / (L[2] - L[0]), 0, 1));
 }
 
 const AC_DEFS = [
@@ -32,7 +47,7 @@ const AC_DEFS = [
     gun: 'M61A1 20 mm 機砲', note: '單發動機輕型戰機，腹部進氣口加無框泡型座艙罩。最佳轉向速率 41°/秒、滾轉 240°/秒，近距纏鬥最靈活。',
     paint: { pattern: 1, top: '#80888e', bot: '#a7aeb3', c2: '#8e969b', c3: '#757d83', scale: 0.26, rad: '#5f6569', radZ: 1.9, glass: '#2f3a44', metal: 0.06, gloss: 0.34 },
     st: { hp: 174, vab: 1388, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 34, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 510 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -62,10 +77,10 @@ const AC_DEFS = [
   },
   {
     id: 'f22', era: 'jet', name: 'F-22A 猛禽', en: 'F-22A RAPTOR', country: '美國', first: 1997, len: 18.92, span: 13.56,
-    gun: 'M61A2 20 mm 機砲', note: '匿蹤戰機，飛彈收在內藏彈艙。不開後燃器也能飛到 1,361 km/h（超音速巡航），中程彈 6 枚全場最多。',
+    gun: 'M61A2 20 mm 機砲', note: '匿蹤戰機，飛彈收在內藏彈艙。不開後燃器也能飛到 1,361 km/h（超音速巡航），彈艙內藏 6 枚中程彈。',
     paint: { pattern: 1, top: '#6c7177', bot: '#686d72', c2: '#7c8187', c3: '#63686e', scale: 0.2, glass: '#8a6a2c', metal: 0.12, gloss: 0.3 },
     st: { hp: 297, vab: 1510, vmax: 1361, vtab: 742, vt: 498, vc: 810, vr: 144, vs: 288, vcl: 603, aab: 47, acc: 28, wb: 40, wh: 16, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 480 },
     loadout: [['aim120', 6], ['aim9m', 2]],
     build(a) {
       a.body([
@@ -90,11 +105,45 @@ const AC_DEFS = [
     },
   },
   {
+    id: 'f15', era: 'jet', name: 'F-15E 打擊鷹', en: 'F-15E STRIKE EAGLE', country: '美國', first: 1986, len: 19.43, span: 13.05,
+    gun: 'M61A1 20 mm 機砲（加特林）', note: '雙座雙發重型戰機，機身兩側貼著保形油箱。極速 1,552 km/h 全場最快、生命值 296；加特林機砲要先轉 0.8 秒才全速，射速每秒 60 發。',
+    paint: { pattern: 0, top: '#5d6266', bot: '#666b6f', c2: '#5d6266', c3: '#5d6266', scale: 0.3, rad: '#55595c', radZ: 1.9, glass: '#2f3b46', metal: 0.08, gloss: 0.34 },
+    // M61A1: 60 rounds/s, 511 damage/s, spins up in 0.8 s; overheats after 5.98 s of fire, cools 16 %/s, 6.25 s to recover
+    st: { hp: 296, vab: 1552, vmax: 987, vtab: 797, vt: 513, vc: 882, vr: 216, vs: 288, vcl: 620, aab: 49, acc: 30, wb: 36, wh: 15, roll: 190, resp: 6,
+      abFuel: 18.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 60, gunDmg: 511 / 60 / 1.35, bullet: 1550, spread: 1.0, spin: 0.8, heat: { t: 5.98, cool: 0.16, lock: 6.25 } },
+    loadout: [['aim7', 6], ['aim9m15', 4]],
+    build(a) {
+      a.body([
+        { z: 0, w: 0.03, h: 0.03, y: 0.02 }, { z: 0.8, w: 0.28, h: 0.3, y: 0.04 }, { z: 2.2, w: 0.52, h: 0.58, y: 0.08 },
+        { z: 3.8, w: 0.66, h: 0.74, hb: 0.6, y: 0.12 }, { z: 5.6, w: 0.74, h: 0.78, hb: 0.6, y: 0.1, n: 2.4 }, { z: 7.6, w: 1.1, h: 0.62, hb: 0.6, n: 2.6 },
+        { z: 10.5, w: 1.32, h: 0.5, hb: 0.52, n: 3 }, { z: 14.5, w: 1.28, h: 0.46, hb: 0.46, n: 3 }, { z: 17.4, w: 1.12, h: 0.42, hb: 0.42, n: 3 }, { z: 18.4, w: 1.02, h: 0.4, hb: 0.4, n: 3 },
+      ]);
+      for (const s of [1, -1]) {
+        // square intakes beside the cockpit, conformal tanks along the sides
+        a.loft([{ z: 5.5, w: 0.44, h: 0.66, y: -0.1, n: 6 }, { z: 7.4, w: 0.5, h: 0.66, y: -0.1, n: 5 }, { z: 11.0, w: 0.56, h: 0.56, y: -0.08, n: 3 }], { x: 1.22 * s, cap0: false, seg: 14 });
+        a.face([1.22 * s, -0.1, 5.58], 0.4, 0.6, 6);
+        a.loft([{ z: 7.8, w: 0.06, h: 0.2, y: -0.15 }, { z: 9.0, w: 0.34, h: 0.36, y: -0.15, n: 3 }, { z: 14.0, w: 0.36, h: 0.34, y: -0.12, n: 3 }, { z: 15.6, w: 0.08, h: 0.12, y: -0.1 }], { x: 1.62 * s, seg: 12 });
+        a.nozzle(0.66 * s, 0.0, 18.3, 0.56, 0.52, 1.0);
+      }
+      a.wing([[1.5, 8.2, 15.2, 0.4], [6.5, 12.9, 14.9, 0.1]], { y: 0.12, dih: -1 });
+      const sR = a.bone('stab', [2.4, 0.0, 17.6], [1, 0, 0], 1), sL = a.bone('stab', [-2.4, 0.0, 17.6], [1, 0, 0], -1);
+      a.wing([[1.55, 16.4, 19.2, 0.16], [4.35, 18.2, 19.4, 0.06]], { y: 0.0, bones: [sR, sL] });
+      a.fin([[0, 14.6, 18.2, 0.22], [3.05, 16.9, 18.3, 0.08]], { x: 1.45, y: 0.36, cant: 2, twin: true, accentFrom: 2.4 });
+      a.canopy(4.6, 0.66, 0.46, 0.55, 2.4);
+      a.gun(1.75, 0.15, 8.6);
+      a.missile(-1.75, -0.6, 8.6, 'rad'); a.missile(1.75, -0.6, 8.6, 'rad'); a.missile(-1.75, -0.6, 12.4, 'rad'); a.missile(1.75, -0.6, 12.4, 'rad');
+      a.missile(-3.4, -0.78, 10.6, 'rad', true); a.missile(3.4, -0.78, 10.6, 'rad', true);
+      a.missile(-3.05, -0.42, 10.9, 'ir', true); a.missile(3.05, -0.42, 10.9, 'ir', true); a.missile(-3.75, -0.42, 10.9, 'ir', true); a.missile(3.75, -0.42, 10.9, 'ir', true);
+      a.tip(6.5, 0.12, 14.8); a.tip(-6.5, 0.12, 14.8);
+    },
+  },
+  {
     id: 'f14', era: 'jet', name: 'F-14A 雄貓', en: 'F-14A TOMCAT', country: '美國', first: 1970, len: 19.1, span: 19.55,
-    gun: 'M61A1 20 mm 機砲', note: '可變後掠翼艦載戰機，機翼會隨速度自動後掠。雷達 17.8 公里看得最遠，AIM-54 鳳凰飛彈速度最快。',
+    gun: 'M61A1 20 mm 機砲', note: '可變後掠翼艦載戰機，機翼會隨速度自動後掠。AIM-54 鳳凰飛彈速度最快、彈體最大。',
     paint: { pattern: 0, top: '#b3b2a9', bot: '#e3e3dc', c2: '#b3b2a9', c3: '#b3b2a9', scale: 0.3, rad: '#c9c8bf', radZ: 1.8, glass: '#2e3944', metal: 0.05, gloss: 0.42 },
     st: { hp: 251, vab: 1240, vmax: 739, vtab: 580, vt: 431, vc: 666, vr: 180, vs: 288, vcl: 496, aab: 41, acc: 25, wb: 36, wh: 14, roll: 180, resp: 6,
-      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 17.8, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 49, gunRate: 16, gunDmg: 10, ammo: 675 },
     loadout: [['aim54', 4], ['aim9m', 4]],
     build(a) {
       a.body([
@@ -129,7 +178,7 @@ const AC_DEFS = [
     gun: 'GSh-30-1 30 mm 機砲', note: '大型雙發重戰機，發動機艙分開、尾部有長尾錐。生命值 297 和 F-22 並列最高。',
     paint: { pattern: 2, top: '#9fb3c4', bot: '#c2d0da', c2: '#7f9db7', c3: '#b6c6d1', scale: 0.36, rad: '#d3d8cf', radZ: 1.9, glass: '#2c3a48', metal: 0.05, gloss: 0.3, },
     st: { hp: 297, vab: 1496, vmax: 947, vtab: 780, vt: 506, vc: 846, vr: 180, vs: 288, vcl: 598, aab: 43, acc: 27, wb: 37, wh: 16, roll: 180, resp: 6,
-      abFuel: 17.3, abRegen: 12.8, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
+      abFuel: 17.3, abRegen: 12.8, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 12, gunDmg: 15, ammo: 240 },
     loadout: [['r27r', 4], ['r73', 4]],
     build(a) {
       a.body([
@@ -160,11 +209,51 @@ const AC_DEFS = [
     },
   },
   {
+    id: 'su30', era: 'jet', name: 'Su-30 側衛-C', en: 'SU-30 FLANKER-C', country: '俄羅斯', first: 1989, len: 21.935, span: 14.7, flame: 'ru',
+    gun: 'GSh-30-1 30 mm 機砲', note: '側衛家族的雙座多用途型，機頭加了一對鴨翼。生命值 296，掛 6 枚 R-77 主動雷達彈和 4 枚 R-73，加速比較慢但很耐打。',
+    paint: { pattern: 2, top: '#8ea2b3', bot: '#b9c6d0', c2: '#647a8e', c3: '#a9b9c6', scale: 0.36, rad: '#2c2f33', radZ: 1.6, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
+    // GSh-30-1: 18 rounds/s, 322 damage/s; overheats after 3.45 s of fire, cools 21 %/s, 4.76 s to recover
+    st: { hp: 296, vab: 1456, vmax: 927, vtab: 741, vt: 498, vc: 828, vr: 180, vs: 288, vcl: 582, aab: 36, acc: 22, wb: 36, wh: 15, roll: 180, resp: 6,
+      abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 18, gunDmg: 322 / 18 / 1.35, bullet: 1150, spread: 0.5, heat: { t: 3.45, cool: 0.21, lock: 4.76 } },
+    loadout: [['r77', 6], ['r73', 4]],
+    build(a) {
+      a.body([
+        { z: 0, w: 0.03, h: 0.03, y: -0.18 }, { z: 1.0, w: 0.33, h: 0.33, y: -0.12 }, { z: 2.4, w: 0.55, h: 0.55, y: -0.03 },
+        { z: 4.0, w: 0.66, h: 0.7, hb: 0.6, y: 0.06 }, { z: 6.2, w: 0.76, h: 0.72, hb: 0.62, y: 0.07 }, { z: 8.6, w: 0.9, h: 0.58, hb: 0.5, n: 2.4 },
+        { z: 11.0, w: 0.92, h: 0.45, hb: 0.4, n: 2.8 }, { z: 15.0, w: 0.82, h: 0.38, hb: 0.35, n: 3 }, { z: 18.0, w: 0.5, h: 0.32, hb: 0.3 },
+        { z: 20.5, w: 0.32, h: 0.26, hb: 0.24 }, { z: 22.0, w: 0.16, h: 0.16, y: 0.02 },
+      ]);
+      for (const s of [1, -1]) {
+        a.loft([{ z: 7.4, w: 0.55, h: 0.58, y: -0.62, n: 5 }, { z: 9.0, w: 0.58, h: 0.62, y: -0.6, n: 4 }, { z: 13.0, w: 0.62, h: 0.6, y: -0.55, n: 2.6 },
+          { z: 18.0, w: 0.6, h: 0.58, y: -0.55, n: 2.2 }, { z: 19.6, w: 0.56, h: 0.54, y: -0.55 }], { x: 1.18 * s, cap0: false, cap1: false, seg: 16 });
+        a.face([1.18 * s, -0.62, 7.48], 0.5, 0.52, 5);
+        a.nozzle(1.18 * s, -0.55, 19.5, 0.55, 0.5, 0.85);
+      }
+      a.wing([[0.6, 4.6, 17.6, 0.4], [1.6, 7.6, 17.4, 0.38], [2.4, 9.8, 17.2, 0.36], [2.9, 10.9, 17.0, 0.33], [7.3, 14.9, 16.45, 0.1]], { y: -0.05 });
+      const cR = a.bone('canard', [1.25, 0.1, 6.6], [1, 0, 0], 1), cL = a.bone('canard', [-1.25, 0.1, 6.6], [1, 0, 0], -1);
+      a.wing([[0.9, 5.7, 7.3, 0.08], [2.9, 6.9, 7.4, 0.04]], { y: 0.1, bones: [cR, cL] });
+      const sR = a.bone('stab', [3.0, -0.4, 19.6], [1, 0, 0], 1), sL = a.bone('stab', [-3.0, -0.4, 19.6], [1, 0, 0], -1);
+      a.wing([[1.8, 17.6, 20.8, 0.14], [4.6, 20.0, 21.2, 0.05]], { y: -0.4, bones: [sR, sL] });
+      a.fin([[0, 15.2, 19.4, 0.2], [3.3, 18.2, 19.75, 0.08]], { x: 2.05, y: 0.0, cant: 0, twin: true, accentFrom: 2.35 });
+      a.fin([[0, 16.0, 18.4, 0.07], [-0.85, 17.3, 18.6, 0.05]], { x: 1.72, y: -1.0, cant: -6, twin: true });
+      a.canopy(5.0, 0.66, 0.46, 0.6, 2.3);
+      a.gun(1.0, 0.18, 7.0);
+      a.rail(7.42, -0.05, 14.2, 17.0); a.rail(-7.42, -0.05, 14.2, 17.0);
+      a.missile(-4.4, -0.42, 12.3, 'rad', true); a.missile(4.4, -0.42, 12.3, 'rad', true);
+      a.missile(-1.18, -1.32, 10.0, 'rad'); a.missile(1.18, -1.32, 10.0, 'rad');
+      a.missile(-0.4, -0.72, 9.0, 'rad'); a.missile(0.4, -0.72, 9.0, 'rad');
+      a.missile(-5.7, -0.38, 13.4, 'ir', true); a.missile(5.7, -0.38, 13.4, 'ir', true);
+      a.missile(-7.5, -0.05, 13.9, 'ir'); a.missile(7.5, -0.05, 13.9, 'ir');
+      a.tip(7.5, -0.05, 16.5); a.tip(-7.5, -0.05, 16.5);
+    },
+  },
+  {
     id: 'typhoon', era: 'jet', name: '颱風戰鬥機', en: 'EUROFIGHTER TYPHOON', country: '英國／德國／義大利／西班牙', first: 1994, len: 15.96, span: 10.95,
     gun: 'BK-27 27 mm 機砲', note: '鴨翼加三角翼的歐洲雙發戰機，腹下有張「笑臉」進氣口。不開後燃器就有 1,240 km/h，掛流星遠程飛彈。',
     paint: { pattern: 0, top: '#8d9399', bot: '#a9afb4', c2: '#979da2', c3: '#868c92', scale: 0.25, rad: '#6f757a', radZ: 1.7, glass: '#2f3943', metal: 0.06, gloss: 0.36 },
     st: { hp: 232, vab: 1510, vmax: 1240, vtab: 637, vt: 440, vc: 738, vr: 144, vs: 288, vcl: 623, aab: 47, acc: 26, wb: 40, wh: 15, roll: 190, resp: 6,
-      abFuel: 16.8, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 11.9, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
+      abFuel: 16.8, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 39, gunRate: 14, gunDmg: 12, ammo: 210 },
     loadout: [['meteor', 4], ['irist', 4]],
     build(a) {
       a.body([
@@ -190,11 +279,45 @@ const AC_DEFS = [
     },
   },
   {
+    id: 'rafale', era: 'jet', name: '陣風 F3-R', en: 'RAFALE F3-R', country: '法國', first: 1986, len: 15.27, span: 10.9,
+    gun: 'GIAT 30M791 30 mm 機砲', note: '法國的鴨翼三角翼雙發戰機。全掛 8 枚 MICA IR 紅外線飛彈：中程也能鎖定（11.5 公里），彈體轉向 47°/秒，又急又準。',
+    paint: { pattern: 0, top: '#6e757b', bot: '#858c92', c2: '#6e757b', c3: '#6e757b', scale: 0.3, rad: '#4c5257', radZ: 1.8, glass: '#3a4450', metal: 0.07, gloss: 0.34 },
+    // GIAT 30: 24 rounds/s, 365 damage/s; overheats after 2.55 s of fire, cools 21 %/s, 4.76 s to recover
+    st: { hp: 204, vab: 1389, vmax: 1230, vtab: 680, vt: 422, vc: 792, vr: 144, vs: 198, vcl: 486, aab: 46, acc: 29, wb: 40, wh: 15, roll: 230, resp: 7,
+      abFuel: 15.6, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
+      gunRate: 24, gunDmg: 365 / 24 / 1.35, bullet: 1400, spread: 0.5, heat: { t: 2.55, cool: 0.21, lock: 4.76 } },
+    loadout: [['micair', 8]],
+    build(a) {
+      a.body([
+        { z: 0, w: 0.03, h: 0.03, y: 0.0 }, { z: 0.8, w: 0.26, h: 0.26, y: 0.0 }, { z: 2.0, w: 0.44, h: 0.48, y: 0.03 },
+        { z: 3.4, w: 0.55, h: 0.62, hb: 0.5, y: 0.07 }, { z: 5.0, w: 0.62, h: 0.66, hb: 0.55, y: 0.07, n: 2.3 }, { z: 7.0, w: 0.92, h: 0.58, hb: 0.6, n: 2.5 },
+        { z: 10.0, w: 1.05, h: 0.52, hb: 0.55, n: 2.8 }, { z: 13.0, w: 1.0, h: 0.46, hb: 0.48, n: 3 }, { z: 14.5, w: 0.94, h: 0.42, hb: 0.42, n: 3 },
+      ]);
+      for (const s of [1, -1]) {
+        a.loft([{ z: 5.4, w: 0.34, h: 0.46, y: -0.5, n: 4 }, { z: 6.8, w: 0.4, h: 0.5, y: -0.46, n: 3.5 }, { z: 9.6, w: 0.4, h: 0.44, y: -0.36, n: 3 }], { x: 0.92 * s, cap0: false, seg: 12 });
+        a.face([0.92 * s, -0.5, 5.48], 0.3, 0.42, 4);
+        a.nozzle(0.48 * s, 0.0, 14.4, 0.44, 0.41, 0.85);
+      }
+      a.wing([[0.8, 6.0, 14.6, 0.38], [5.45, 12.4, 13.7, 0.07]], { y: -0.22 });
+      const cR = a.bone('canard', [1.0, 0.18, 5.7], [1, 0, 0], 1), cL = a.bone('canard', [-1.0, 0.18, 5.7], [1, 0, 0], -1);
+      a.wing([[0.6, 4.5, 6.5, 0.08], [2.25, 5.9, 6.7, 0.04]], { y: 0.18, dih: 4, bones: [cR, cL] });
+      a.fin([[0, 9.4, 14.5, 0.24], [2.65, 13.0, 14.3, 0.08]], { y: 0.44, accentFrom: 1.9 });
+      a.canopy(4.0, 0.56, 0.42, 0.52, 1.7);
+      a.gun(0.62, -0.12, 6.2);
+      a.rail(5.45, -0.22, 12.0, 13.9); a.rail(-5.45, -0.22, 12.0, 13.9);
+      a.missile(-5.5, -0.22, 10.9, 'ir'); a.missile(5.5, -0.22, 10.9, 'ir');
+      a.missile(-4.15, -0.5, 10.2, 'ir', true); a.missile(4.15, -0.5, 10.2, 'ir', true);
+      a.missile(-2.85, -0.5, 9.4, 'ir', true); a.missile(2.85, -0.5, 9.4, 'ir', true);
+      a.missile(-0.75, -0.9, 9.2, 'ir'); a.missile(0.75, -0.9, 9.2, 'ir');
+      a.tip(5.5, -0.22, 13.6); a.tip(-5.5, -0.22, 13.6);
+    },
+  },
+  {
     id: 'm2000', era: 'jet', name: '幻象 2000-5', en: 'MIRAGE 2000-5', country: '法國', first: 1978, len: 14.36, span: 9.13,
     gun: 'DEFA 554 30 mm 機砲 ×2', note: '沒有水平尾翼的純三角翼，中華民國空軍也有服役。加速和爬升最快，但急轉彎掉速很兇。',
     paint: { pattern: 1, top: '#8796a5', bot: '#a6b3be', c2: '#9eacb9', c3: '#7a8a99', scale: 0.24, rad: '#6a7176', radZ: 1.75, glass: '#2d3944', metal: 0.06, gloss: 0.34 },
     st: { hp: 223, vab: 1509, vmax: 907, vtab: 558, vt: 362, vc: 810, vr: 144, vs: 216, vcl: 653, aab: 57, acc: 34, wb: 40, wh: 15, roll: 175, resp: 6,
-      abFuel: 14.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 9.5, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
+      abFuel: 14.4, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 18, gunDmg: 12, ammo: 270 },
     loadout: [['s530d', 4], ['magic', 4]],
     build(a) {
       a.body([
@@ -227,7 +350,7 @@ const AC_DEFS = [
     paint: { pattern: 0, top: '#9ba1a6', bot: '#d3d6d7', c2: '#9ba1a6', c3: '#9ba1a6', scale: 0.25, rad: '#575c60', radZ: 1.3, glass: '#3b5566', metal: 0.06, gloss: 0.36,
       marks: [{ wing: [3.2, 8.78, 0.32] }], markStyle: 'roc', markCol: '#22388c', markCol2: '#f2f2ee' },
     st: { hp: 200, vab: 1400, vmax: 826, vtab: 679, vt: 528, vc: 738, vr: 144, vs: 234, vcl: 416, aab: 57, acc: 38, wb: 41, wh: 15, roll: 240, resp: 8,
-      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 7.1, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
+      abFuel: 14.4, abRegen: 12.0, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33, gunRate: 16, gunDmg: 10, ammo: 500 },
     loadout: [['aim120', 4], ['aim9m', 2]],
     build(a) {
       // after the AIDC three-view: drooped radome with a long pitot, bubble canopy, kidney intakes under long LERX,
@@ -266,7 +389,7 @@ const AC_DEFS = [
     gun: 'GSh-23L 23 mm 機砲', est: true, note: '機頭進氣、中央有震波錐的經典三角翼，產量最多的超音速戰機。（這架的數值是估計值）',
     paint: { pattern: 3, top: '#b9bec2', bot: '#c5c9cc', c2: '#b9bec2', c3: '#b9bec2', scale: 0.3, glass: '#2f3b45', metal: 0.72, gloss: 0.6 },
     st: { hp: 165, vab: 1420, vmax: 790, vtab: 600, vt: 450, vc: 760, vr: 144, vs: 270, vcl: 580, aab: 52, acc: 28, wb: 34, wh: 14, roll: 200, resp: 6,
-      abFuel: 12.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 6.0, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
+      abFuel: 12.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 30, gunRate: 16, gunDmg: 11, ammo: 260 },
     loadout: [['r3r', 2], ['r60', 2]],
     build(a) {
       a.body([

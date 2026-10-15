@@ -32,14 +32,10 @@ CFG = {
                 bones=[dict(kind='stab', side=-1, node=r'^ElevatorL01'), dict(kind='stab', side=1, node=r'^ElevatorR01'),
                        dict(kind='ail', side=-1, node=r'^AileronL01'), dict(kind='ail', side=1, node=r'^AileronR01'),
                        dict(kind='rud', side=0, node=r'^RudderL01')]),
-    'f22': dict(yaw=0, tex=2048, target=42000, credit=dict(title='F22 RAPTOR', author='sxnneh', license='Sketchfab Standard',
-                                                            url='https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'),
-                rm_node=r'^(wheel_|gear_|steeringwheel|dials_|weapon_1a|door_pside_f|bonnet)',
-                rm_mat=r'^(vc_1|vc_2|vc_4|vc_5|vc_6|vc_7|vc_mfd_btn|screens|script_rt_dials_lazer|wing_broken|f22_weps_t|glass_in)$',
+    'f22': dict(yaw=-90, tex=2048, credit=dict(title='Lockheed Martin F-22 "Raptor"', author='andertan', license='CC BY 4.0',
+                                               url='https://sketchfab.com/3d-models/lockheed-martin-f-22-raptor-7e7b3c372e374dda98e70208d09cfdcf'),
                 internal=dict(rad=[[-0.34, -0.55, -0.9], [0.34, -0.55, -0.9]] * 3, ir=[[-1.12, -0.35, -1.1], [1.12, -0.35, -1.1]]),
-                bones=[dict(kind='stab', side=-1, node=r'^elevator_l_9', mesh=r'^Object_42$', xsign=-1), dict(kind='stab', side=1, node=r'^elevator_l_9', mesh=r'^Object_42$', xsign=1),
-                       dict(kind='ail', side=-1, node=r'^aileron_l_25'), dict(kind='ail', side=1, node=r'^aileron_r_29'),
-                       dict(kind='rud', side=-1, node=r'^rudder_18'), dict(kind='rud', side=1, node=r'^rudder\.001_37')]),
+                bones=[]),
     'f14': dict(yaw=244, tex=1024, credit=dict(title='F14', author='manilov.ap', license='CC BY 4.0',
                                                url='https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af'),
                 rm_node=r'^(Torus\d+|Cylinder(48|50|51|54|55|56|58|60|61|63|64|65|66|67)|Box(09|10|60|61|64|65|66|67|68)|Line03|Object09)-FACES',
@@ -75,6 +71,20 @@ CFG = {
                   stores=[S('rad', -2.5, 1.0, rail=True), S('rad', 2.5, 1.0, rail=True), S('ir', -1.6, 1.2, pylon=True), S('ir', 1.6, 1.2, pylon=True)],
                   bones=[dict(kind='stab', side=s, cbox=dict(x=(0.4, 1.9), z=(3.8, 6.7), y=(0.05, 0.35), sx=1.0, mintris=50), xsign=s) for s in (-1, 1)]
                        + [dict(kind='ail', side=s, cbox=dict(x=(1.85, 3.1), z=(2.0, 2.8), y=(-0.15, 0.15), sx=0.9, mintris=50), xsign=s) for s in (-1, 1)]),
+    'rafale': dict(yaw=-90, tex=2048, credit=dict(title='Dassault Rafale', author='andertan', license='CC BY 4.0',
+                                                  url='https://sketchfab.com/3d-models/dassault-rafale-fabb8472bc2e413282c80406b13ff1a7'),
+                   stores=[], bones=[]),
+
+    'su30': dict(yaw=90, tex=2048, credit=dict(title='Sukhoi Su-30 flanker c', author='andertan', license='CC BY 4.0',
+                                               url='https://sketchfab.com/3d-models/sukhoi-su-30-flanker-c-92ca062c90fd45ffb6ce8144dc46004a'),
+                 stores=[], bones=[]),
+
+    # CC BY-ND 4.0 (no derivatives): only format conversion — no simplification, no parts cut out of the file;
+    # stores the game does not use are folded away when drawn ('hide' bones), not deleted
+    'f15': dict(yaw=90, tex=2048, credit=dict(title='McDonnell Douglas F-15 Strike Eagle', author='andertan', license='CC BY-ND 4.0',
+                                              url='https://sketchfab.com/3d-models/mcdonnell-douglas-f-15-strike-eagle-b7bf2e523aee40f9b048c9f7863fedc8'),
+                stores=[], bones=[]),
+
     # ---- WWII ----
     'p51': dict(yaw=180, pitch=-12.5, tex=1024, credit=dict(title='P-51 Mustang', author='ACshibu', license='CC BY-NC 4.0',
                                                url='https://sketchfab.com/3d-models/p-51-mustang-4250635c2df54edc8c29f532bc5bac3b'),
@@ -102,6 +112,18 @@ CFG = {
 
 def in_rng(v, r):
     return r[0] <= v <= r[1]
+
+
+def in_poly(px, pz, poly):
+    """points (px, pz) inside the polygon [(x, z), ...] (even-odd rule)"""
+    inside = np.zeros(len(px), bool)
+    n = len(poly)
+    for i in range(n):
+        x0, z0 = poly[i]; x1, z1 = poly[(i + 1) % n]
+        cross = (z0 > pz) != (z1 > pz)
+        xi = x0 + (pz - z0) * (x1 - x0) / ((z1 - z0) if z1 != z0 else 1e-12)
+        inside ^= cross & (px < xi)
+    return inside
 
 
 def build(name):
@@ -196,6 +218,18 @@ def build(name):
                 if in_rng(xx, cb['x']) and in_rng(z, cb['z']) and in_rng(y, cb['y']) and sz[c][0] >= cb.get('sx', 0) and cnt[c] >= cb.get('mintris', 8):
                     sel.append(c)
             m |= np.isin(lab, sel)
+        if 'tbox' in bc:
+            # single triangles by centroid, for surfaces that are not separate parts in the source model
+            # (x is |x| unless signed; optional poly = outline in the (|x|, z) plane, e.g. along a hinge line)
+            tb = bc['tbox']
+            xx = cen[:, 0] if tb.get('signed') else np.abs(cen[:, 0])
+            mm = np.ones(len(F), bool)
+            for k, col in (('x', xx), ('y', cen[:, 1]), ('z', cen[:, 2])):
+                if k in tb:
+                    mm &= (col >= tb[k][0]) & (col <= tb[k][1])
+            if 'poly' in tb:
+                mm &= in_poly(xx, cen[:, 2], tb['poly'])
+            m |= mm
         if bc.get('xsign'):
             m &= np.sign(cen[:, 0]) == bc['xsign']
         m &= tri_keep
@@ -238,6 +272,9 @@ def build(name):
             d = B - A; d /= np.linalg.norm(d)
             if d[1] < 0: d = -d
             pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+        elif kind == 'hide':
+            # kept in the file but folded to a point inside the airframe when drawn (stores the game does not carry)
+            pivot = [float(v) for v in bc.get('pivot', (0.0, 0.0, 0.0))]; axis = [1.0, 0.0, 0.0]
         elif kind == 'swing':
             pivot = [float(v) for v in bc['pivot']]; axis = [0.0, 1.0, 0.0]
             # leading-edge sweep of the panel as modelled: front-most z per spanwise bin, outer 60 %
@@ -354,21 +391,15 @@ def write_model(name, R):
     GV = np.concatenate([np.full(len(p['pos']), gi) for gi, p in enumerate(prims)])
     # material per prim -> group key (same material => same group)
     mat_of_prim = [p['mat'] for p in prims]
-    # slot per vertex: vertices of slotted triangles
-    SV = np.zeros(len(V), np.int16)
-    SV[F[Sl > 0].ravel()] = np.repeat(Sl[Sl > 0], 3)
-    BV = np.zeros(len(V), np.uint8)
-    BV[F[Bt > 0].ravel()] = np.repeat(Bt[Bt > 0], 3)
-    # remap vertices: only used, unique (pos, nor, uv, slot, material)
-    used = np.unique(F)
+    # one vertex per distinct (pos, nor, uv, slot, bone, material) triangle corner: a vertex shared by a hinged part
+    # and the airframe (or by a missile and its pylon) is split, so every triangle moves with its own part
     mat_v = np.array([mat_of_prim[g] for g in GV])
-    key = np.concatenate([np.round(V[used] * 2000), np.round(NOR[used] * 100), np.round(UV[used] * 8000), SV[used][:, None], BV[used][:, None], mat_v[used][:, None]], axis=1)
+    cv = F.ravel(); cs = np.repeat(Sl, 3).astype(np.int16); cb = np.repeat(Bt, 3).astype(np.uint8)
+    key = np.concatenate([np.round(V[cv] * 2000), np.round(NOR[cv] * 100), np.round(UV[cv] * 8000), cs[:, None], cb[:, None], mat_v[cv][:, None]], axis=1)
     _, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
-    newid = np.full(len(V), -1, np.int64)
-    newid[used] = inv.ravel()
-    vsrc = used[first]
-    Fn = newid[F]
-    pos = V[vsrc].astype(np.float32); nor = NOR[vsrc]; uv = UV[vsrc]; slot = SV[vsrc]; bone = BV[vsrc]; vmat = mat_v[vsrc]
+    Fn = inv.ravel().reshape(-1, 3).astype(np.int64)
+    vsrc = cv[first]
+    pos = V[vsrc].astype(np.float32); nor = NOR[vsrc]; uv = UV[vsrc]; slot = cs[first]; bone = cb[first]; vmat = mat_v[vsrc]
     nv = len(pos)
     print(f'  unique verts {nv}, tris {len(Fn)}')
     # simplify

@@ -130,7 +130,8 @@ const HUD = {
       c.fillStyle = hpf > 0.5 ? g : hpf > 0.25 ? this.warn : this.foe; c.fillRect(cx - bw / 2, y - 22, bw * hpf, 6);
       this.text('機體 ' + Math.max(0, Math.round(me.hp)) + ' / ' + me.st.hp, cx, y - 34, 12, g, 'center');
       // one line of segments: gun, radar missile, IR missile, flares (the selected missile is bright)
-      const segs = [['GUN ' + Math.floor(me.ammo), g]];
+      const segs = [me.st.heat ? (me.gunLock > 0 ? ['機砲過熱 ' + me.gunLock.toFixed(1) + 's', this.foe] : ['GUN 熱 ' + Math.round(me.heat * 100) + '%', me.heat > 0.7 ? this.warn : g])
+        : ['GUN ' + Math.floor(me.ammo), g]];
       const dim = 'rgba(141,255,176,0.5)';
       if (d.wR) segs.push([(me.wsel === 'rad' ? '▶' : '') + d.wR.m.short + ' ×' + me.mR, me.wsel === 'rad' ? '#ffffff' : dim]);
       if (d.wI) segs.push([(me.wsel === 'ir' ? '▶' : '') + d.wI.m.short + ' ×' + me.mI, me.wsel === 'ir' ? '#ffffff' : dim]);
