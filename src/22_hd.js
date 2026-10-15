@@ -131,12 +131,14 @@ const HD = {
 const MSL_CREDIT = {
   aim120c: ['AIM-120C AMRAAM', 'Jeyhun1985'], aim9l: ['Missiles', 'Civorsky'], aim54c: ['Missiles', 'Civorsky'], s530d: ['Missiles', 'Civorsky'],
   aim120d: ['Missiles', 'Civorsky'], r27r: ['Russian weapon pack', 'Rhine_Lab_Muelsyse'], r73: ['Russian weapon pack', 'Rhine_Lab_Muelsyse'],
+  p2_aim7: ['Missile & Bomb Collection - Fighter Jets - Free', 'bohmerang', 'CC BY-NC-SA 4.0'], p2_aim9: ['Missile & Bomb Collection - Fighter Jets - Free', 'bohmerang', 'CC BY-NC-SA 4.0'],
+  p2_r77: ['Missile & Bomb Collection - Fighter Jets - Free', 'bohmerang', 'CC BY-NC-SA 4.0'],
 };
 // which hi-detail missile model stands in for each game missile: [model, length (m) if rescaled, colour tint]
 const MSL_HD = {
   aim120: ['aim120c'], aim9m: ['aim9l', 0, [0.8, 0.82, 0.84]], aim54: ['aim54c'], meteor: ['aim120d'], irist: ['aim9l'],
   r27r: ['r27r'], r73: ['r73'], s530d: ['s530d'], magic: ['aim9l', 2.75], r3r: ['aim9l', 3.1, [0.74, 0.76, 0.77]], r60: ['r73', 2.09],
-  micair: ['aim120c', 3.1], r77: ['r27r', 3.6], aim7: ['aim120c', 3.66], aim9m15: ['aim9l', 0, [0.8, 0.82, 0.84]],
+  micair: ['aim120c', 3.1], r77: ['p2_r77'], aim7: ['p2_aim7'], aim9m15: ['p2_aim9'],
 };
 
 function decodeImage(blob) {
