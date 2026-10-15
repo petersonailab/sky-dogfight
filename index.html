@@ -755,8 +755,9 @@ void main(){ vec3 d = normalize(vDir); vec3 c = skyCol(d); float s = max(dot(d, 
   gl_FragColor = vec4(c, 1.0); }`,
   },
   water: {
-    vs: `attribute vec2 aPos; uniform mat4 uVP; uniform vec3 uCam; varying vec3 vW;
-void main(){ vec3 w = vec3(aPos.x + uCam.x, 0.0, aPos.y + uCam.z); vW = w; gl_Position = uVP * vec4(w, 1.0); }`,
+    // the camera has its own name here: a uniform shared with a mediump fragment shader would not link on such GPUs
+    vs: `attribute vec2 aPos; uniform mat4 uVP; uniform vec3 uCamV; varying vec3 vW;
+void main(){ vec3 w = vec3(aPos.x + uCamV.x, 0.0, aPos.y + uCamV.z); vW = w; gl_Position = uVP * vec4(w, 1.0); }`,
     fs: GLSL_FRAG_HEAD + GLSL_ENV + `varying vec3 vW; uniform float uTime; uniform vec3 uDeep;
 void main(){
   vec3 p = vW; float dist = length(p - uCam); vec2 q = p.xz;
@@ -969,6 +970,7 @@ const R = {
     if (u.uVP) gl.uniformMatrix4fv(u.uVP, false, C.vp);
     if (u.uIVP) gl.uniformMatrix4fv(u.uIVP, false, C.ivp);
     if (u.uCam) gl.uniform3f(u.uCam, C.pos.x, C.pos.y, C.pos.z);
+    if (u.uCamV) gl.uniform3f(u.uCamV, C.pos.x, C.pos.y, C.pos.z);
     if (u.uSunDir) gl.uniform3f(u.uSunDir, E.sun.x, E.sun.y, E.sun.z);
     if (u.uSunCol) gl.uniform3fv(u.uSunCol, E.sunCol);
     if (u.uZen) gl.uniform3fv(u.uZen, E.zen);
