@@ -713,12 +713,15 @@ function buildSharedMeshes() {
   mb.box([0, 0, -0.95], 0.26, 0.012, 0.14); mb.box([0, 0, -0.95], 0.012, 0.26, 0.14);
   SHARED.missile = R.mesh(mb.data(), 'plane');
   SHARED.missilePaint = paintUniforms({ paint: { top: '#d9dad6', bot: '#d9dad6' } }, 0);
-  // afterburner cone along +z (unit)
+  // afterburner plume hull along +z (unit length, unit nozzle radius), closed at the tail and wound outward: a little
+  // wider than the gas envelope the flame shader marches through (same profile: slight bulge, then a long taper),
+  // rings packed toward the nozzle and the tip
   const fb = [];
-  const seg = 14, rings = 6;
-  const ring = (z) => { const r = Math.pow(1 - z, 0.65) * (1 - z * 0.15); const pts = []; for (let i = 0; i < seg; i++) { const t = i / seg * TAU; pts.push([Math.cos(t) * r, Math.sin(t) * r, z]); } return pts; };
+  const seg = 20, rings = 16;
+  const ring = (k) => { const z = 0.5 - 0.5 * Math.cos(k / rings * Math.PI), y = 1 - z, r = 1.1 * Math.sqrt(y * (1 + 0.8 * z)) * (1 + 0.6 * z * y * y * y) + 0.04 * y;
+    const pts = []; for (let i = 0; i < seg; i++) { const t = i / seg * TAU; pts.push([Math.cos(t) * r, Math.sin(t) * r, z]); } return pts; };
   for (let k = 0; k < rings; k++) {
-    const A = ring(k / rings), B = ring((k + 1) / rings);
+    const A = ring(k), B = ring(k + 1);
     for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; fb.push(...A[i], ...A[j], ...B[j], ...A[i], ...B[j], ...B[i]); }
   }
   SHARED.flame = R.mesh(new Float32Array(fb), 'p3');
