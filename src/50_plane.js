@@ -292,7 +292,8 @@ class Plane {
     return w <= 1 || r * R.cam.px / w > px;
   }
   drawFlames(now) {
-    if (!this.alive || !R.visible(this.pos, this.model.radius)) return;
+    // twice the radius: the plume reaches well past the tail
+    if (!this.alive || !R.visible(this.pos, this.model.radius * 2)) return;
     const st = this.st, m = this.vm || this.model;
     if (st.prop) {
       for (const p of m.props) {
@@ -315,7 +316,7 @@ class Plane {
       // afterburner: long plume with shock diamonds ~1.2 nozzle diameters apart; dry: short; slow, small length flicker
       const r = Math.max(f.r, 0.3), w = r * lerp(0.85, 1.02, k);
       const L = r * lerp(2.2 + 2 * dry, 12.5, k) * (1 + 0.035 * Math.sin(t * 8.7 + sd) + 0.02 * Math.sin(t * 14.9 + sd * 1.9));
-      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.4), k, _b, sd);
+      R.drawFlame(SHARED.flame, FLAME_M, w, w, L, inten, 0, pal, L / (r * 2.4), k, _b, (t * 14 - sd) % TAU);
       // the glowing nozzle seen from behind (it would be hidden inside the nozzle when seen from the side)
       const back = smooth(0.2, 0.5, _b.z / (_b.len() || 1));
       if (back <= 0) continue;
