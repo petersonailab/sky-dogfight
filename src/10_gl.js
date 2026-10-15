@@ -225,14 +225,16 @@ varying vec4 vC; varying vec2 vUV; void main(){ vC = aCol; vUV = aUV; gl_Positio
     fs: GLSL_FRAG_HEAD + `varying vec4 vC; varying vec2 vUV;
 void main(){ float e = abs(vUV.y); float a = vC.a * (1.0 - smoothstep(0.2, 1.0, e)) * mix(0.2, 1.0, vUV.x); vec3 c = mix(vC.rgb, vec3(1.0, 0.97, 0.9), 1.0 - smoothstep(0.0, 0.45, e)); gl_FragColor = vec4(c * a, a * 0.55); }`,
   },
-  // afterburner plume along +z (unit cone), prop blur disc (mode 1) and glowing nozzle disc (mode 2).
-  // Colours per engine family: c0 white-hot core, c1 plume, c2 tail, c3 nozzle ring; shock diamonds along the core.
+  // afterburner plume, prop blur disc (mode 1) and glowing nozzle disc (mode 2).
+  // The plume mesh is only a hull a little wider than the flame (unit length along +z, unit nozzle radius): each pixel
+  // marches its view ray through the glowing gas inside (8 steps, nozzle frame), so the edges are soft and no facets
+  // show from any side. Layers: envelope (c1, turning c2 downstream), shorter white-hot core (c0) and the shock diamonds;
+  // uAB 0..1 = dry heat glow .. full afterburner; uCamL = camera in the nozzle frame (metres). c3 = nozzle ring.
   flame: {
-    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL; varying vec3 vW; varying vec3 vN;
-void main(){ vL = aPos; vec4 w = uModel * vec4(aPos * uScl, 1.0); vW = w.xyz;
-  vN = normalize((uModel * vec4(aPos.x, aPos.y, 0.0, 0.0)).xyz + vec3(1e-5)); gl_Position = uVP * w; }`,
-    fs: GLSL_FRAG_HEAD + `varying vec3 vL; varying vec3 vW; varying vec3 vN; uniform float uInt; uniform float uMode; uniform float uTime; uniform vec3 uCam;
-uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia;
+    vs: `attribute vec3 aPos; uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uScl; varying vec3 vL;
+void main(){ vL = aPos; gl_Position = uVP * (uModel * vec4(aPos * uScl, 1.0)); }`,
+    fs: GLSL_FRAG_HEAD + `varying vec3 vL; uniform float uInt; uniform float uMode; uniform float uTime; uniform vec3 uScl; uniform vec3 uCamL;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uDia; uniform float uAB; uniform float uSeed;
 void main(){
   if (uMode > 1.5) { // nozzle glow seen from behind: white-hot centre, coloured ring
     float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.55, r);
@@ -240,19 +242,37 @@ void main(){
     gl_FragColor = vec4(col * a, a); return; }
   if (uMode > 0.5) { float r = length(vL.xy); float a = uInt * smoothstep(1.0, 0.75, r) * smoothstep(0.12, 0.35, r) * (0.75 + 0.25 * sin(r * 40.0));
     gl_FragColor = vec4(vec3(0.32) * a * 0.22, a * 0.22); return; }
-  float z = vL.z;
-  vec3 V = normalize(uCam - vW);
-  float face = abs(dot(normalize(vN), V));            // 1 where we look through the middle of the plume
-  float core = pow(face, 1.6);
-  float cell = fract(z * uDia + 0.35);                 // shock diamonds: bright knots at regular spacing
-  float dia = exp(-pow((cell - 0.5) * 3.2, 2.0)) * (1.0 - smoothstep(0.2, 0.9, z));
-  float hot = core * (1.0 - smoothstep(0.0, 0.3, z));
-  vec3 col = mix(uC1, uC0, clamp(hot * 0.85 + dia * core * 0.85, 0.0, 1.0));
-  col = mix(col, uC2, smoothstep(0.3, 1.0, z) * (1.0 - core * 0.4));
-  float fade = pow(1.0 - z, 1.1);
-  // kept below saturation so the knots still read as brighter bands
-  float a = uInt * fade * (0.3 + 0.7 * core) * (0.5 + 0.95 * dia) * 0.78 * (0.92 + 0.08 * sin(uTime * 61.0 + z * 11.0));
-  gl_FragColor = vec4(col * a, a * 0.55);              // partly 'over' so the colour survives against a bright sky
+  // in nozzle radii from here on
+  float Ln = uScl.z / uScl.x;
+  vec3 e = vL * vec3(1.0, 1.0, Ln), d = normalize(e - uCamL / uScl.x);
+  // the ray leaves the gas through the bounding cylinder or the nozzle / tail planes
+  float a = dot(d.xy, d.xy), b = dot(e.xy, d.xy), c = dot(e.xy, e.xy) - 1.5;
+  float t = a > 1e-6 ? (sqrt(max(b * b - a * c, 0.0)) - b) / a : 1e4;
+  if (d.z > 1e-4) t = min(t, (Ln - e.z) / d.z); else if (d.z < -1e-4) t = min(t, -e.z / d.z);
+  float k = t / 8.0;
+  vec3 st = d * k, p = e + st * 0.5;
+  // diamonds blur into the core when one step spans most of a cell (looking along the plume)
+  float sharp = clamp(1.6 - abs(st.z) / Ln * uDia * 3.0, 0.0, 1.0) * uAB * uAB * 2.4;
+  float zc = mix(0.1, 0.4, uAB), hot = mix(0.6, 1.2, uAB), cool = 0.4 - 0.4 * uAB, ph = uTime * 14.0 - uSeed;
+  vec3 dc = mix(uC0, uC1, 0.4), E = vec3(0.0); float tau = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float z = clamp(p.z / Ln, 0.0, 1.0), y = 1.0 - z, q2 = dot(p.xy, p.xy);
+    // envelope: bulges a little after the exit, then a long taper; turbulence carried downstream, stronger toward the tail
+    float bz = 1.0 + 0.6 * z * y * y * y;
+    float env = max(1.0 - q2 / (y * (1.0 + 0.8 * z) * bz * bz + 1e-4), 0.0) * y * (1.0 + 0.3 * z * sin(p.z * 1.3 + p.x * 1.7 - ph));
+    // white-hot core, shorter and narrower
+    float cz = max(1.0 - z / zc, 0.0), cr = max(1.0 - q2 / (0.15 * cz + 0.01), 0.0);
+    float core = cz * cz * cr * cr;
+    // shock diamonds: tri is 0 at each shock and 1 between them; each knot is a double cone, fading downstream
+    float tri = 1.0 - abs(fract(z * uDia - 0.1) * 2.0 - 1.0), fd = max(1.0 - z / 0.72, 0.0);
+    float dia = clamp((0.384 * tri * tri - q2) * 9.0, 0.0, 1.0) * tri * tri * (3.0 - 2.0 * tri) * fd * fd;
+    E += mix(uC1, uC2, smoothstep(0.1, 0.95, z + cool)) * (env * 1.5) + uC0 * (core * hot) + dc * (dia * sharp);
+    tau += env + core * 0.5;
+    p += st;
+  }
+  // soft saturation: the hottest parts turn white, thin parts keep their colour;
+  // partly 'over' so the plume still reads against a bright sky
+  gl_FragColor = vec4(1.0 - exp(-E * (k * uInt)), (1.0 - exp(-tau * (k * uInt * 0.9))) * 0.7);
 }`,
   },
 };
@@ -509,17 +529,21 @@ const R = {
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     gl.depthMask(true); gl.disable(gl.BLEND);
   },
-  // mode 0: plume (additive), 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }; dia = shock diamonds per plume length
-  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia) {
+  // mode 0: plume, 1: prop disc, 2: nozzle glow (additive); pal = { c0, c1, c2, c3 }. Plume only: dia = shock diamonds
+  // per plume length, ab = afterburner 0..1, cam = camera position in the model frame (metres), seed = flicker phase.
+  // Front faces only, so every pixel marches through the plume once.
+  drawFlame(mesh, model, sx, sy, sz, intensity, mode, pal, dia, ab, cam, seed) {
     const gl = this.gl, p = this.use(this.P.flame), u = p.u;
-    gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND); gl.depthMask(false);
+    if (mode === 1) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
     if (mode === 2) gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniformMatrix4fv(u.uModel, false, model);
     gl.uniform3f(u.uScl, sx, sy, sz); gl.uniform1f(u.uInt, intensity); gl.uniform1f(u.uMode, mode || 0);
     const P = pal || FLAME_PAL.us;
-    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3); gl.uniform1f(u.uDia, dia || 3);
+    gl.uniform3fv(u.uC0, P.c0); gl.uniform3fv(u.uC1, P.c1); gl.uniform3fv(u.uC2, P.c2); gl.uniform3fv(u.uC3, P.c3);
+    if (!mode) { gl.uniform1f(u.uDia, dia || 3); gl.uniform1f(u.uAB, ab || 0); gl.uniform3f(u.uCamL, cam.x, cam.y, cam.z); gl.uniform1f(u.uSeed, seed || 0); }
     this.bind(p, mesh); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
-    gl.depthMask(true); gl.disable(gl.BLEND);
+    gl.depthMask(true); gl.disable(gl.BLEND); gl.enable(gl.CULL_FACE);
   },
 };
 const IDENT = M4.create();
