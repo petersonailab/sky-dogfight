@@ -210,18 +210,18 @@ def build(name):
         if 'joint' in bc:
             rj = re.compile(bc['joint'])
             m |= np.array([bool(rj.search(j)) for j in TJ])
-        if 'cbox' in bc:
-            cb = bc['cbox']; sel = []
+        for cb in (bc['cbox'] if isinstance(bc.get('cbox'), list) else [bc['cbox']] if 'cbox' in bc else []):
+            sel = []
             for c in range(len(cnt)):
                 x, y, z = ctr[c]
                 xx = x if cb.get('signed') else abs(x)
                 if in_rng(xx, cb['x']) and in_rng(z, cb['z']) and in_rng(y, cb['y']) and sz[c][0] >= cb.get('sx', 0) and cnt[c] >= cb.get('mintris', 8):
                     sel.append(c)
             m |= np.isin(lab, sel)
-        if 'tbox' in bc:
-            # single triangles by centroid, for surfaces that are not separate parts in the source model
-            # (x is |x| unless signed; optional poly = outline in the (|x|, z) plane, e.g. along a hinge line)
-            tb = bc['tbox']
+        # single triangles by centroid, for surfaces that are not separate parts in the source model
+        # (x is |x| unless signed; optional poly = outline in the (|x|, z) plane, e.g. along a hinge line).
+        # cbox / tbox may also be lists of boxes (one bone made of several pieces, e.g. stores to 'hide')
+        for tb in (bc['tbox'] if isinstance(bc.get('tbox'), list) else [bc['tbox']] if 'tbox' in bc else []):
             xx = cen[:, 0] if tb.get('signed') else np.abs(cen[:, 0])
             mm = np.ones(len(F), bool)
             for k, col in (('x', xx), ('y', cen[:, 1]), ('z', cen[:, 2])):
@@ -329,7 +329,7 @@ def build(name):
         stores.append(dict(k=st['k'], x=round(st['x'], 3), y=round(y, 3), z=round(st['z'] - L / 2, 3), pylon=bool(st.get('pylon'))))
     # flames: refine the procedural nozzle positions on the real geometry
     flames = []
-    for f in PROC[name]['flames']:
+    for f in ([] if cfg.get('flames') else PROC[name]['flames']):
         fx, fy, fz = f['p']; fr = f['r']
         m = (np.hypot(VK[:, 0] - fx, VK[:, 1] - fy) < fr * 1.7) & (VK[:, 2] > fz - 3.5)
         if m.sum() < 5:
@@ -339,6 +339,8 @@ def build(name):
         x0, x1 = VK[ring, 0].min(), VK[ring, 0].max(); y0, y1 = VK[ring, 1].min(), VK[ring, 1].max()
         rr = 0.5 * min(x1 - x0, y1 - y0) * 0.86
         flames.append(dict(p=[round(float((x0 + x1) / 2), 3), round(float((y0 + y1) / 2), 3), round(ze - 0.05, 3)], r=round(float(min(max(rr, fr * 0.6), fr * 1.4)), 3)))
+    if cfg.get('flames'):   # measured by hand: [{'p': [x, y, z of the nozzle exit], 'r': radius}, ...]
+        flames = [dict(p=[float(v) for v in f['p']], r=float(f['r'])) for f in cfg['flames']]
     # wingtips
     tips = []
     xm = VK[:, 0].max()
