@@ -93,13 +93,14 @@ CFG = {
                 # hinge line and the trailing-edge strip (the lower skin is one big triangle across the hinge and stays).
                 # The fins are a few big triangles from leading to trailing edge: no rudders.
                 # hide: the model's AIM-120s / AIM-9s and fins, the bombs and laser-guided bombs on the conformal tanks with their
-                # racks, the bomb under each wing pylon (its triangles only: the pylon is the same part, other materials),
-                # the centreline tank and its rack
+                # racks, the bomb under each wing pylon (its triangles only: the pylon is the same part, other materials;
+                # its lower strake and tail fins are separate parts), the centreline tank and its rack
                 bones=[dict(kind='stab', side=s, xsign=s, tbox=dict(x=(1.8, 4.4), y=(-0.227, -0.219), z=(5.9, 9.4))) for s in (-1, 1)]
                      + [dict(kind='ail', side=s, xsign=s, tbox=dict(y=(0.22, 0.33), poly=[(3.88, 4.2), (5.62, 4.85), (5.55, 5.23), (3.86, 4.86)])) for s in (-1, 1)]
                      + [dict(kind='hide', side=0, pivot=(0.0, -0.17, 0.5),
                              cbox=[dict(x=(2.2, 2.52), y=(-0.27, 0.05), z=(-0.5, 2.2)), dict(x=(3.05, 3.35), y=(-0.27, 0.05), z=(-0.5, 2.2)),
-                                   dict(x=(1.6, 2.1), y=(-1.52, -0.62), z=(-1.2, 6.1)), dict(x=(0.0, 0.2), y=(-1.57, -0.67), z=(-2.5, 3.7), mintris=1)],
+                                   dict(x=(1.6, 2.1), y=(-1.52, -0.62), z=(-1.2, 6.1)), dict(x=(0.0, 0.2), y=(-1.57, -0.67), z=(-2.5, 3.7), mintris=1),
+                                   dict(x=(2.7, 2.9), y=(-0.7, -0.6), z=(1.5, 2.0)), dict(x=(2.9, 3.1), y=(-0.75, -0.25), z=(3.1, 3.4))],
                              tbox=dict(x=(2.45, 3.1), y=(-0.82, -0.17), z=(-0.7, 3.5), mat=r'^(F15_R|Not_so_dark|darkenss)'))]),
 
     # ---- WWII ----
