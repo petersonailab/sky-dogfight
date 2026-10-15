@@ -284,35 +284,47 @@ const AC_DEFS = [
   {
     id: 'rafale', era: 'jet', name: '陣風 F3-R', en: 'RAFALE F3-R', country: '法國', first: 1986, len: 15.27, span: 10.9,
     gun: 'GIAT 30M791 30 mm 機砲', note: '法國的鴨翼三角翼雙發戰機。全掛 8 枚 MICA IR 紅外線飛彈：中程也能鎖定（11.5 公里），彈體轉向 47°/秒，又急又準。',
-    paint: { pattern: 0, top: '#6e757b', bot: '#858c92', c2: '#6e757b', c3: '#6e757b', scale: 0.3, rad: '#4c5257', radZ: 1.8, glass: '#3a4450', metal: 0.07, gloss: 0.34 },
+    // dark grey like the hi-detail textures, darker radome, gold-tinted canopy
+    paint: { pattern: 0, top: '#4c5257', bot: '#40454a', c2: '#4c5257', c3: '#4c5257', scale: 0.3, rad: '#35393c', radZ: 2.0, glass: '#6e5a36', metal: 0.07, gloss: 0.34 },
     // GIAT 30: 24 rounds/s, 365 damage/s; overheats after 2.55 s of fire, cools 21 %/s, 4.76 s to recover
     st: { hp: 204, vab: 1389, vmax: 1230, vtab: 680, vt: 422, vc: 792, vr: 144, vs: 198, vcl: 486, aab: 46, acc: 29, wb: 40, wh: 15, roll: 230, resp: 7,
       abFuel: 15.6, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
       gunRate: 24, gunDmg: 365 / 24 / 1.35, bullet: 1400, spread: 0.5, heat: { t: 2.55, cool: 0.21, lock: 4.76 } },
     loadout: [['micair', 8]],
     build(a) {
+      // after the hi-detail model: drooped nose with the fixed refuelling probe, long canopy, D-shaped intakes under
+      // close-coupled canards, wide blended centre body with a dorsal spine, cropped delta wing (48° leading edge),
+      // single fin with the fin-tip pod, twin nozzles close together
       a.body([
-        { z: 0, w: 0.03, h: 0.03, y: 0.0 }, { z: 0.8, w: 0.26, h: 0.26, y: 0.0 }, { z: 2.0, w: 0.44, h: 0.48, y: 0.03 },
-        { z: 3.4, w: 0.55, h: 0.62, hb: 0.5, y: 0.07 }, { z: 5.0, w: 0.62, h: 0.66, hb: 0.55, y: 0.07, n: 2.3 }, { z: 7.0, w: 0.92, h: 0.58, hb: 0.6, n: 2.5 },
-        { z: 10.0, w: 1.05, h: 0.52, hb: 0.55, n: 2.8 }, { z: 13.0, w: 1.0, h: 0.46, hb: 0.48, n: 3 }, { z: 14.5, w: 0.94, h: 0.42, hb: 0.42, n: 3 },
+        { z: 0, w: 0.03, h: 0.03, y: -0.45 }, { z: 0.7, w: 0.19, h: 0.2, y: -0.42 }, { z: 1.5, w: 0.33, h: 0.34, y: -0.34 },
+        { z: 2.4, w: 0.45, h: 0.46, y: -0.27 }, { z: 3.3, w: 0.53, h: 0.56, hb: 0.54, y: -0.27 }, { z: 4.4, w: 0.6, h: 0.6, hb: 0.6, y: -0.25 },
+        { z: 5.6, w: 0.74, h: 0.62, hb: 0.66, y: -0.25, n: 2.2 }, { z: 7.0, w: 1.22, h: 0.6, hb: 0.71, y: -0.25, n: 2.4 },
+        { z: 9.5, w: 1.26, h: 0.58, hb: 0.7, y: -0.25, n: 2.4 }, { z: 11.5, w: 1.24, h: 0.42, hb: 0.6, y: -0.28, n: 2.4 },
+        { z: 13.0, w: 1.16, h: 0.38, hb: 0.44, y: -0.28, n: 2.3 }, { z: 13.7, w: 1.0, h: 0.32, hb: 0.42, y: -0.2, n: 2.2 },
       ]);
+      a.loft([{ z: 5.0, w: 0.3, h: 0.3, y: 0.45 }, { z: 6.4, w: 0.33, h: 0.33, y: 0.4 }, { z: 8.5, w: 0.3, h: 0.3, y: 0.3 },
+        { z: 11.0, w: 0.28, h: 0.28, y: 0.3 }, { z: 13.5, w: 0.25, h: 0.25, y: 0.3 }, { z: 14.3, w: 0.14, h: 0.22, y: 0.3 }], { seg: 14 });
+      a.loft([{ z: 1.3, w: 0.035, h: 0.035, x: 0.66, y: 0.6 }, { z: 2.1, w: 0.04, h: 0.04, x: 0.63, y: 0.55 }, { z: 2.9, w: 0.045, h: 0.045, x: 0.36, y: 0.12 }], { seg: 6 });
       for (const s of [1, -1]) {
-        a.loft([{ z: 5.4, w: 0.34, h: 0.46, y: -0.5, n: 4 }, { z: 6.8, w: 0.4, h: 0.5, y: -0.46, n: 3.5 }, { z: 9.6, w: 0.4, h: 0.44, y: -0.36, n: 3 }], { x: 0.92 * s, cap0: false, seg: 12 });
-        a.face([0.92 * s, -0.5, 5.48], 0.3, 0.42, 4);
-        a.nozzle(0.48 * s, 0.0, 14.4, 0.44, 0.41, 0.85);
+        a.loft([{ z: 4.85, w: 0.28, h: 0.6, hb: 0.43, y: -0.45, n: 3 }, { z: 6.0, w: 0.3, h: 0.6, hb: 0.44, y: -0.45, n: 3 },
+          { z: 7.6, w: 0.26, h: 0.5, hb: 0.4, y: -0.4, n: 2.6 }], { x: 0.85 * s, seg: 14 });
+        a.face([0.85 * s, -0.5, 4.83], 0.21, 0.31, 2.4);
+        a.nozzle(0.5 * s, -0.14, 13.6, 0.46, 0.37, 0.61);
       }
-      a.wing([[0.8, 6.0, 14.6, 0.38], [5.45, 12.4, 13.7, 0.07]], { y: -0.22 });
-      const cR = a.bone('canard', [1.0, 0.18, 5.7], [1, 0, 0], 1), cL = a.bone('canard', [-1.0, 0.18, 5.7], [1, 0, 0], -1);
-      a.wing([[0.6, 4.5, 6.5, 0.08], [2.25, 5.9, 6.7, 0.04]], { y: 0.18, dih: 4, bones: [cR, cL] });
-      a.fin([[0, 9.4, 14.5, 0.24], [2.65, 13.0, 14.3, 0.08]], { y: 0.44, accentFrom: 1.9 });
-      a.canopy(4.0, 0.56, 0.42, 0.52, 1.7);
-      a.gun(0.62, -0.12, 6.2);
-      a.rail(5.45, -0.22, 12.0, 13.9); a.rail(-5.45, -0.22, 12.0, 13.9);
-      a.missile(-5.5, -0.22, 10.9, 'ir'); a.missile(5.5, -0.22, 10.9, 'ir');
-      a.missile(-4.15, -0.5, 10.2, 'ir', true); a.missile(4.15, -0.5, 10.2, 'ir', true);
-      a.missile(-2.85, -0.5, 9.4, 'ir', true); a.missile(2.85, -0.5, 9.4, 'ir', true);
-      a.missile(-0.75, -0.9, 9.2, 'ir'); a.missile(0.75, -0.9, 9.2, 'ir');
-      a.tip(5.5, -0.22, 13.6); a.tip(-5.5, -0.22, 13.6);
+      a.wing([[1.15, 6.84, 12.89, 0.3], [2.65, 8.63, 12.78, 0.22], [4.7, 11.1, 12.56, 0.16]], { y: -0.25, dih: -1.3 });
+      const cR = a.bone('canard', [0.97, 0.15, 5.57], [1, 0, 0], 1), cL = a.bone('canard', [-0.97, 0.15, 5.57], [1, 0, 0], -1);
+      a.wing([[0.95, 4.9, 6.6, 0.09], [2.18, 6.42, 6.88, 0.04]], { y: 0.15, dih: -1.5, bones: [cR, cL] });
+      a.fin([[0, 9.6, 14.1, 0.3], [0.3, 11.0, 14.2, 0.24], [2.4, 14.0, 14.95, 0.08], [2.62, 14.35, 14.9, 0.05]], { y: 0.55, accentFrom: 2.25 });
+      a.mat(MAT.ACCENT); a.b.box([0, 2.77, 14.34], 0.18, 0.24, 1.86); a.mat(MAT.PAINT);
+      a.canopy(4.2, 0.3, 0.4, 0.7, 1.8);
+      a.gun(1.0, -0.1, 6.8);
+      a.rail(4.75, -0.42, 10.14, 12.97); a.rail(-4.75, -0.42, 10.14, 12.97);
+      // MICA IR, fired from the fuselage outward (same stations as the hi-detail model)
+      a.missile(-0.65, -0.96, 8.69, 'ir'); a.missile(0.65, -0.96, 8.69, 'ir');
+      a.missile(-2.75, -0.73, 8.79, 'ir', true); a.missile(2.75, -0.73, 8.79, 'ir', true);
+      a.missile(-3.75, -0.745, 9.69, 'ir', true); a.missile(3.75, -0.745, 9.69, 'ir', true);
+      a.missile(-4.75, -0.553, 9.79, 'ir'); a.missile(4.75, -0.553, 9.79, 'ir');
+      a.tip(4.8, -0.36, 12.8); a.tip(-4.8, -0.36, 12.8);
     },
   },
   {

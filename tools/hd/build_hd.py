@@ -85,7 +85,24 @@ CFG = {
                        + [dict(kind='ail', side=s, cbox=dict(x=(1.85, 3.1), z=(2.0, 2.8), y=(-0.15, 0.15), sx=0.9, mintris=50), xsign=s) for s in (-1, 1)]),
     'rafale': dict(yaw=-90, tex=2048, credit=dict(title='Dassault Rafale', author='andertan', license='CC BY 4.0',
                                                   url='https://sketchfab.com/3d-models/dassault-rafale-fabb8472bc2e413282c80406b13ff1a7'),
-                   stores=[], bones=[]),
+                   # the elevons and the rudder are not separate parts: their hinge lines (the panel lines of the texture)
+                   # are cut through the wing and fin skins, then the triangles behind them are picked by centroid
+                   cuts=[dict(p=(0, 0, 4.0), n=(0, 0, 1), x=(1.0, 4.75), y=(-0.7, 0.1), z=(-3.0, 5.3)),      # elevon hinge
+                         dict(p=(1.25, 0, 0), n=(1, 0, 0), x=(1.0, 1.7), y=(-0.7, 0.1), z=(4.0, 5.3)),       # inboard end
+                         dict(p=(2.62, 0, 0), n=(1, 0, 0), x=(2.0, 3.3), y=(-0.7, 0.1), z=(4.0, 5.3)),       # inboard | outboard
+                         dict(p=(4.55, 0, 0), n=(1, 0, 0), x=(4.0, 4.75), y=(-0.7, 0.1), z=(4.0, 5.3)),      # outboard end
+                         dict(p=(0, 1.0, 5.43), n=(0, -0.6, 1), x=(0, 0.25), y=(0.5, 2.8), z=(4.6, 7.4)),    # rudder hinge
+                         dict(p=(0, 0.62, 0), n=(0, 1, 0), x=(0, 0.25), y=(0.3, 1.5), z=(5.0, 7.4)),         # rudder root
+                         dict(p=(0, 2.6, 0), n=(0, 1, 0), x=(0, 0.25), y=(1.8, 3.0), z=(5.0, 7.4))],         # under the fin-tip pod
+                   # 8 MICA IR, fired from the fuselage outward: rear fuselage, mid and outer wing pylons, wingtip rails
+                   stores=[S('ir', -0.65, 2.2), S('ir', 0.65, 2.2), S('ir', -2.75, 2.3, pylon=True), S('ir', 2.75, 2.3, pylon=True),
+                           S('ir', -3.75, 3.2, pylon=True), S('ir', 3.75, 3.2, pylon=True), S('ir', -4.805, 3.3, rail=True), S('ir', 4.695, 3.3, rail=True)],
+                   flames=[dict(p=[-0.508, -0.143, 6.22], r=0.3), dict(p=[0.492, -0.143, 6.22], r=0.3)],
+                   bones=[dict(kind='canard', side=s, tbox=dict(x=(1.2, 2.3), y=(0.04, 0.3), z=(-3.2, -0.9)), xsign=s) for s in (-1, 1)]
+                        + [dict(kind='elevon', side=s, tbox=dict(x=(1.25, 2.62), y=(-0.7, 0.1), z=(4.0, 5.3)), xsign=s) for s in (-1, 1)]
+                        + [dict(kind='elevon', side=s, tbox=dict(x=(2.62, 4.55), y=(-0.7, 0.1), z=(4.0, 5.3)), xsign=s) for s in (-1, 1)]
+                        + [dict(kind='rud', side=0, tbox=dict(x=(0, 0.25), y=(0.62, 2.6), z=(4.6, 7.4), half=((0, 1.0, 5.43), (0, -0.6, 1))),
+                                pivot=(-0.008, 0.62, 5.202), axis=(0, 1, 0.6))]),     # the hinge line on the fin mid-plane (x -0.008)
 
     'su30': dict(yaw=90, tex=2048, credit=dict(title='Sukhoi Su-30 flanker c', author='andertan', license='CC BY 4.0',
                                                url='https://sketchfab.com/3d-models/sukhoi-su-30-flanker-c-92ca062c90fd45ffb6ce8144dc46004a'),
@@ -138,9 +155,55 @@ def in_poly(px, pz, poly):
     return inside
 
 
+def cut_prims(prims, cuts):
+    """Split the triangles that cross a plane, for hinged surfaces whose triangles run across the hinge line in the
+    source model (e.g. a wing's lower skin made of a few big triangles from leading to trailing edge).
+    cut: p = a point on the plane, n = its normal (x is |x|: both sides), optional x/y/z centroid ranges as in tbox."""
+    for c in cuts:
+        p0 = np.array(c['p'], float); nn = np.array(c['n'], float); nn /= np.linalg.norm(nn)
+        for q in prims:
+            A = q['pos'].copy(); A[:, 0] = np.abs(A[:, 0])
+            d = (A - p0) @ nn; d[np.abs(d) < 1e-5] = 0
+            T = q['tri']; ct = A[T].mean(axis=1)
+            sel = (d[T].max(axis=1) > 0) & (d[T].min(axis=1) < 0)
+            for k, col in (('x', 0), ('y', 1), ('z', 2)):
+                if k in c:
+                    sel &= (ct[:, col] >= c[k][0]) & (ct[:, col] <= c[k][1])
+            if not sel.any():
+                continue
+            attrs = [k for k in ('pos', 'nor', 'uv', 'col', 'joint') if q.get(k) is not None]
+            new = {k: [] for k in attrs}; edge = {}; tris = []
+            nv0 = len(q['pos'])
+
+            def mid(a, b):   # new vertex where the edge a-b crosses the plane (shared by both triangles of the edge)
+                if (a, b) in edge or (b, a) in edge:
+                    return edge.get((a, b), edge.get((b, a)))
+                t = d[a] / (d[a] - d[b])
+                for k in attrs:
+                    new[k].append((q[k][a] if t < 0.5 else q[k][b]) if k == 'joint' else q[k][a] + t * (q[k][b] - q[k][a]))
+                edge[(a, b)] = nv0 + len(edge)
+                return edge[(a, b)]
+            for tri in T[sel]:
+                sides = ([], [])   # the two polygons, same winding as the triangle
+                for i in range(3):
+                    a, b = tri[i], tri[(i + 1) % 3]
+                    if d[a] <= 0: sides[0].append(a)
+                    if d[a] >= 0: sides[1].append(a)
+                    if d[a] * d[b] < 0:
+                        m = mid(a, b); sides[0].append(m); sides[1].append(m)
+                for poly in sides:
+                    tris += [[poly[0], poly[i], poly[i + 1]] for i in range(1, len(poly) - 1)]
+            for k in attrs:
+                q[k] = np.concatenate([q[k], np.array(new[k], dtype=q[k].dtype)])
+            if q.get('nor') is not None:
+                q['nor'][nv0:] /= np.maximum(np.linalg.norm(q['nor'][nv0:], axis=1, keepdims=True), 1e-12)
+            q['tri'] = np.concatenate([T[~sel], np.array(tris, np.int64)])
+
+
 def build(name):
     cfg = CFG[name]
     js, binc, prims, info = to_game(name, yaw=cfg.get('yaw'), pitch=cfg.get('pitch', 0.0))
+    cut_prims(prims, cfg.get('cuts', []))
     nprim = len(prims)
     # ---------- part removal (triangle masks) ----------
     keep = [np.ones(len(p['tri']), bool) for p in prims]
@@ -231,7 +294,8 @@ def build(name):
                     sel.append(c)
             m |= np.isin(lab, sel)
         # single triangles by centroid, for surfaces that are not separate parts in the source model
-        # (x is |x| unless signed; optional poly = outline in the (|x|, z) plane, e.g. along a hinge line).
+        # (x is |x| unless signed; optional poly = outline in the (|x|, z) plane, e.g. along a hinge line;
+        # optional half = (point, normal): only the side the normal points to, e.g. behind a slanted rudder hinge cut).
         # cbox / tbox may also be lists of boxes (one bone made of several pieces, e.g. stores to 'hide')
         for tb in (bc['tbox'] if isinstance(bc.get('tbox'), list) else [bc['tbox']] if 'tbox' in bc else []):
             xx = cen[:, 0] if tb.get('signed') else np.abs(cen[:, 0])
@@ -241,6 +305,8 @@ def build(name):
                     mm &= (col >= tb[k][0]) & (col <= tb[k][1])
             if 'poly' in tb:
                 mm &= in_poly(xx, cen[:, 2], tb['poly'])
+            if 'half' in tb:
+                mm &= (np.stack([xx, cen[:, 1], cen[:, 2]], axis=1) - np.array(tb['half'][0])) @ np.array(tb['half'][1]) > 0
             m |= mm
         if bc.get('xsign'):
             m &= np.sign(cen[:, 0]) == bc['xsign']
@@ -287,6 +353,8 @@ def build(name):
             d = B - A; d /= np.linalg.norm(d)
             if d[1] < 0: d = -d
             pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+            if 'pivot' in bc:   # hinge line by hand: A is a skin vertex, not on the fin mid-plane
+                pivot = [float(v) for v in bc['pivot']]; d = np.array(bc['axis'], float); axis = [float(v) for v in d / np.linalg.norm(d)]
         elif kind == 'hide':
             # kept in the file but folded to a point inside the airframe when drawn (stores the game does not carry)
             pivot = [float(v) for v in bc.get('pivot', (0.0, 0.0, 0.0))]; axis = [1.0, 0.0, 0.0]
