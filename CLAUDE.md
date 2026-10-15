@@ -16,7 +16,7 @@
 - `src/*.js` 依檔名順序串成一支程式，模組之間用全域名稱互相呼叫：
   - `00_core` 數學（V3、Q、M4）與小工具；`10_gl` WebGL 繪圖與所有著色器；`20_mesh` 程式模型的網格產生器
   - `21_aircraft` 飛彈表 `MISSILES`、機型表 `AC_DEFS`（數值、掛載、塗裝、程式模型）；`22_hd` 精細模型載入
-  - `30_world` 島嶼雲朵；`40_fx` 粒子；`45_audio` 音效；`50_plane` 飛機（飛行模型、遠端外插、舵面、尾焰）
+  - `30_world` 地圖（20 × 20 公里開放天空、海面、雲）；`40_fx` 粒子；`45_audio` 音效；`50_plane` 飛機（飛行模型、遠端外插、舵面、尾焰）
   - `55_weapons` 機砲、飛彈、熱焰彈、雷達鎖定；`60_ai` AI 飛行員；`68_webnet` MQTT＋WebRTC 傳輸；`70_net` 連機核心
   - `75_game` 回合與重生、飛彈補充；`80_hud` 抬頭顯示器；`85_input` 操作與攝影機；`90_ui` 選單、機庫；`99_main` 主迴圈
 - `src/page.html`：版面與 CSS。
@@ -30,28 +30,32 @@
 - 常用測試：
   - `python3 test/sim2.py 60 jet 7`、`python3 test/sim2.py 60 prop 6`：AI 混戰 60 秒，檢查 NaN、撞地、武器使用
   - `python3 test/mp.py`：兩個分頁連機（模擬 room）；`python3 test/webmp.py`：真正的 MQTT／WebRTC 流程（會自己開 `node test/mqtt_broker.js`）
-  - `python3 test/reloadtest.py`：飛彈補充與熱焰彈冷卻
+  - `python3 test/reloadtest.py`：飛彈補充與熱焰彈冷卻；`python3 test/guntest.py`：機砲過熱、MICA 鎖定時間、雷達與鎖定距離
   - 外觀截圖：`test/hdview.py <stores|flames|prop|propfront|close> <機型…>`、`test/hdsurf2.py`（舵面）、`test/mslfly.py`（飛行中的飛彈）、`test/procshots.py`（程式模型）、`test/hdshots.py`（機庫）
   - `test/perfhd.py`：精細模型與程式模型的畫面時間比較
 
 ## 遊戲數值
-- 七架噴射機（F-16V、F-22A、F-14A、Su-27、颱風、幻象 2000-5、經國號）和它們的飛彈，數值來自使用者給的表，**使用者沒要求就不要改**。MiG-21bis、R-3R、R-60 和四架螺旋槳機是估計值（`est: true`）。
+- 十架噴射機（F-16V、F-22A、F-15E、F-14A、Su-27、Su-30、颱風、陣風 F3-R、幻象 2000-5、經國號）和它們的飛彈、新三架的機砲，數值來自使用者給的表，**使用者沒要求就不要改**。MiG-21bis、R-3R、R-60 和四架螺旋槳機是估計值（`est: true`）。
+- 使用者訂的通則：所有噴射機雷達 12 公里；所有雷達彈鎖定 11.5 公里（`LOCK_RAD`）、短程紅外線彈 5 公里（`LOCK_IR_SHORT`）；熱焰彈冷卻一律 1.5 秒（新機型的表上寫 5 秒，照通則改成 1.5）。MICA IR 是中程紅外線彈（11.5 公里，`lockTr` 依距離 1.1–2.0 秒）。
+- 機砲兩種：一般是彈藥制（`ammo`）；陣風、Su-30、F-15E 是過熱制（`st.heat = { t: 連射秒數, cool: 每秒散熱比例, lock: 過熱冷卻秒數 }`，`st.spin` 加特林轉速，`st.spread` 散布全角，`st.bullet` 彈速 m/s）。`gunDmg` 由表上的每秒傷害換算（實際每發傷害是 `gunDmg × 1.35`）。測試：`test/guntest.py`。
 - `perfOf()` 把表上的數值（km/h、°/s）換成飛行模型參數。
 - 飛彈補充：`src/75_game.js` 的 `RELOAD_RAD`、`RELOAD_IR`（目前都是 7 秒補 1 枚）。熱焰彈冷卻：每架的 `st.flareCd`（噴射機都是 1.5 秒）。
 - 尾焰：`def.flame: 'ru'` 是藍色（Su-27、MiG-21），其他是橘紅色，顏色在 `src/10_gl.js` 的 `FLAME_PAL`。
 
 ## 精細模型
-- 有精細模型的：F-16、F-22、F-14、Su-27、颱風、幻象 2000、MiG-21、P-51、噴火、Bf 109，加上飛彈庫 `models/missiles.bin`。經國號和零戰只有程式模型（依三視圖做的，機徽用塗裝的 `marks`）。
+- 有精細模型的：F-16、F-22、F-15E、F-14、Su-27、Su-30、颱風、陣風、幻象 2000、MiG-21、P-51、噴火、Bf 109，加上飛彈庫 `models/missiles.bin`。經國號和零戰只有程式模型（依三視圖做的，機徽用塗裝的 `marks`）。
 - 載入在 `src/22_hd.js`（`HD_IDS`、作者標示 `HD_CREDIT`、飛彈對應 `MSL_HD`）。畫質「流暢」（觸控裝置預設）或網址加 `?lowpoly` 時改用程式模型。
 - `.bin`（SDM1）格式：`'SDM1'` + u32 標頭長度 + JSON 標頭 + 頂點（每個 16 bytes：int16×3 位置、int16 飛彈槽、int8×3 法線、uint8 骨骼、uint16×2 UV）+ 索引 + WebP 貼圖。標頭的 `meta` 有 `bones`（舵面、F-14 後掠翼、螺旋槳的鉸鏈）、`flames`、`tips`、`stores`、`props`、`accY`。
 - 飛彈槽：雷達彈 1–20、紅外線彈 21–40，著色器依已發射的數量把掛架上的飛彈藏起來。
 - 轉檔工具在 `tools/hd/`。原始 GLB **不在 repo**（檔案太大，而且 F-22 的授權不允許單獨散布模型檔）。要重轉時：
-  1. 把使用者提供的檔案放到 `tools/hd/src/<id>.glb`（id：f16、f22、f14、su27、typhoon、m2000、mig21、p51、spit、bf109），飛彈放到 `tools/hd/msl/`（`aim120.glb`、`nato_pack.glb`、`rus_pack.glb`）。
+  1. 把使用者提供的檔案放到 `tools/hd/src/<id>.glb`（id：f16、f22、f15、f14、su27、su30、typhoon、rafale、m2000、mig21、p51、spit、bf109），飛彈放到 `tools/hd/msl/`（`aim120.glb`、`nato_pack.glb`、`rus_pack.glb`、`pack2.glb` = 飛彈與炸彈模型包）。
   2. 編譯 `tools/hd/msimp`（作法寫在 `msimp.cpp` 第一段註解，需要 meshoptimizer 原始碼）。
-  3. 執行 `python3 tools/hd/build_hd.py <id>` 或 `python3 tools/hd/build_msl.py`。每架的設定在 `build_hd.py` 的 `CFG`：轉向、要移除的零件、掛架位置、可動零件。
-- 授權：README 有作者與授權表。新增模型要同時更新 README 和 `HD_CREDIT`。標示 NC 的不可商用；F-22 是 Sketchfab Standard。
+  3. 改過程式模型先跑 `node tools/hd/procmeta.js`（重算 `procmeta.json`：尾焰、翼尖位置），再執行 `python3 tools/hd/build_hd.py <id>`。每架的設定在 `build_hd.py` 的 `CFG`：轉向、要移除的零件、掛架位置、可動零件（`node`／`cbox`／`tbox` 選取，`hide` 是繪製時收起的零件）、手動尾焰位置 `flames`。
+  4. 飛彈：只有模型包 2 的原始檔在手上，用 `python3 tools/hd/build_msl.py --append <key…>` 把新飛彈加進現有的 `missiles.bin`（不要整個重建，前三個來源檔不在）。
+- 授權：README 有作者與授權表。新增模型要同時更新 README 和 `HD_CREDIT`（飛彈是 `MSL_CREDIT`）。標示 NC 的不可商用；SA 的改作檔同授權釋出。**F-15E 是 CC BY-ND（禁止改作）**：只能做格式轉換，不可減面、不可刪零件（不要用 `target`、`rm_*`、`glb_drop`），用不到的外掛用 `hide` 骨頭在繪製時收起。
 
 ## 連機
-- `src/70_net.js`（`PROTO = 4`）和 `src/68_webnet.js`。改了封包格式要把 `PROTO` 加一，避免新舊版本混在同一個房間。
-- MQTT 主題前綴 `skydogfight/v4/`；邀請連結是網址後面的 `#房間代碼`；網址參數 `?nop2p` 只走伺服器轉送，`?mqtt=wss://…` 換伺服器。
+- `src/70_net.js`（`PROTO = 5`）和 `src/68_webnet.js`。改了封包格式要把 `PROTO` 加一，避免新舊版本混在同一個房間。
+- 機型用 `AC_DEFS` 的順序編號傳送，增刪機型也要把 `PROTO` 加一。
+- MQTT 主題前綴 `skydogfight/v5/`（跟著 `PROTO` 改）；邀請連結是網址後面的 `#房間代碼`；網址參數 `?nop2p` 只走伺服器轉送，`?mqtt=wss://…` 換伺服器。
 - 房主是在房間待最久的人，負責 AI 和規則，離開時自動交接。
