@@ -22,7 +22,7 @@ const Main = {
     requestAnimationFrame(t => this.frame(t));
     // keep presence flowing while the tab is in the background (rAF stops there)
     this.hiddenTimer = setInterval(() => { if (document.hidden && Game.active && Game.kind === 'online') { const now = performance.now(); Net.tick(now); } }, 250);
-    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD, buildAircraftModel };
+    if (window.__DF_TEST__) window.__df = { Game, Net, W, R, CAM, Input, UI, AC_DEFS, AC_BY_ID, MISSILES, WORLD, FX, HUD, Main, V3, Q, AU, Plane, Brain, steerTo, WebNet, perfOf, HD, buildAircraftModel, lockTime };
   },
   frame() {
     requestAnimationFrame(t => this.frame(t));
