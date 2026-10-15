@@ -83,18 +83,19 @@ CFG = {
                        dict(p=(0, 0.06, 0), n=(0, 1, 0), x=(1.85, 2.0), y=(-0.1, 2.8), z=(3.5, 7.7)),         # rudder root
                        dict(p=(0, 2.7047, 0), n=(0, 1, 0), x=(1.85, 2.0), y=(1.5, 3.5), z=(5.0, 7.7))],       # rudder top
                  # 6 R-77 (wing pylons, under the intake ducts, the two tandem stations in the tunnel between the nacelles),
-                 # 4 R-73 (outer wing pylons, wingtip launchers); the model has no pylons of its own
+                 # 4 R-73 (outer wing pylons, launch rails under the wingtips); the model has no pylons or rails of its own
                  stores=[S('rad', -3.3, 2.7, pylon=True), S('rad', 3.3, 2.7, pylon=True), S('rad', -1.28, 0.5, pylon=True), S('rad', 1.28, 0.5, pylon=True),
-                         S('rad', 0, 1.0, rail=True), S('rad', 0, 5.0, rail=True),
-                         S('ir', -5.5, 4.0, pylon=True), S('ir', 5.5, 4.0, pylon=True), S('ir', -7.2, 4.95, rail=True), S('ir', 7.2, 4.95, rail=True)],
+                         S('rad', 0, 1.0), S('rad', 0, 5.0),
+                         S('ir', -5.5, 4.0, pylon=True), S('ir', 5.5, 4.0, pylon=True), S('ir', -7.35, 4.95, ph=0.2), S('ir', 7.35, 4.95, ph=0.2)],
                  # nozzle exit = the rim of the petals; the gold rings and the flame disc are recessed 0.4-0.6 m inside
                  flames=[dict(p=[-1.282, -0.581, 9.3], r=0.48), dict(p=[1.282, -0.581, 9.3], r=0.48)],
                  # canards and stabilators are separate parts; both canards turn together about one spanwise axis, so they share
-                 # one bone and the 7 bones cover canards, stabilators, flaperons and rudders; the flaperons are modelled as
-                 # drooped panels behind the wing's hinge edge (2.21, 3.97)-(5.40, 5.38)
+                 # one bone and the 7 bones cover canards, stabilators, flaperons and rudders; the flaperons are separate panels
+                 # behind the wing's hinge edge (2.21, 3.97)-(5.40, 5.38), modelled drooped (trailing edge 0.185 m below the
+                 # wing): raised level, so they line up with the fixed outer trailing edge at neutral
                  bones=[dict(kind='canard', side=0, cbox=dict(x=(1.7, 3.4), z=(-3.1, -0.4), y=(-0.3, 0.2), sx=1.0))]
                       + [dict(kind='stab', side=s, cbox=dict(x=(2.5, 4.5), z=(6.5, 9.0), y=(-0.8, -0.4), sx=2.0), xsign=s) for s in (-1, 1)]
-                      + [dict(kind='ail', side=s, tbox=dict(x=(2.2, 5.42), y=(-0.25, 0.0), poly=[(2.2, 3.962), (5.42, 5.389), (5.42, 6.2), (2.2, 6.2)]), xsign=s) for s in (-1, 1)]
+                      + [dict(kind='ail', side=s, droop=0.185, tbox=dict(x=(2.2, 5.42), y=(-0.25, 0.0), poly=[(2.2, 3.962), (5.42, 5.389), (5.42, 6.2), (2.2, 6.2)]), xsign=s) for s in (-1, 1)]
                       + [dict(kind='rud', side=s, tbox=dict(x=(1.85, 2.0), y=(0.06, 2.7047), z=(6.3, 7.7), half=((0, 0, 6.49), (0, -0.1, 1))), xsign=s) for s in (-1, 1)]),
 
     # CC BY-ND 4.0 (no derivatives): only format conversion — no simplification, no parts cut out of the file;
@@ -332,6 +333,19 @@ def build(name):
             d = B - A; d /= np.linalg.norm(d)
             if d[0] < 0: d = -d
             pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+            if bc.get('droop'):
+                # panel modelled lowered (flaperons drooped at rest): its trailing-edge vertices, droop m too low, are raised
+                # level with the wing (the hinge line stays put: the panel meets the wing only there) and the panel's own
+                # vertex normals are recomputed from its new shape, on the same side as before
+                vi = np.unique(F[m]); te = vi[(V[vi] - A) @ np.array([-d[2], 0.0, d[0]]) > 0.05]   # behind the hinge line
+                if np.isin(F[~m], te).any(): print('  !! droop: trailing edge shared with other parts')
+                V[te, 1] += bc['droop']
+                T = F[m]; fn = np.cross(V[T[:, 1]] - V[T[:, 0]], V[T[:, 2]] - V[T[:, 0]])
+                acc = np.zeros((len(V), 3)); np.add.at(acc, T.ravel(), np.repeat(fn, 3, axis=0))
+                voff = np.cumsum([0] + [len(p['pos']) for p in prims])
+                for v in vi[~np.isin(vi, F[~m])]:
+                    g = np.searchsorted(voff, v, side='right') - 1; nr = prims[g]['nor']; n = acc[v] / max(np.linalg.norm(acc[v]), 1e-12)
+                    if nr is not None: nr[v - voff[g]] = n if n @ nr[v - voff[g]] >= 0 else -n
         elif kind == 'rud':
             y0, y1 = P[:, 1].min(), P[:, 1].max(); h = y1 - y0
             bot = P[P[:, 1] <= y0 + 0.15 * h]; top = P[P[:, 1] >= y1 - 0.15 * h]
@@ -394,6 +408,8 @@ def build(name):
         gap = 0.32 + 0.14 if st.get('pylon') else 0.015
         y = y_m - r - gap
         stores.append(dict(k=st['k'], x=round(st['x'], 3), y=round(y, 3), z=round(st['z'] - L / 2, 3), pylon=bool(st.get('pylon'))))
+        if st.get('ph'):   # a shorter pylon of this height (m), e.g. a launch rail under a wingtip; the game draws it like a pylon
+            stores[-1].update(y=round(y_m - r - st['ph'], 3), ph=st['ph'])
     # flames: refine the procedural nozzle positions on the real geometry
     flames = []
     for f in ([] if cfg.get('flames') else PROC[name]['flames']):

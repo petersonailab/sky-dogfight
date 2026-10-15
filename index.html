@@ -1528,7 +1528,9 @@ const AC_DEFS = [
   {
     id: 'su30', era: 'jet', name: 'Su-30 側衛-C', en: 'SU-30 FLANKER-C', country: '俄羅斯', first: 1989, len: 21.935, span: 14.7, flame: 'ru',
     gun: 'GSh-30-1 30 mm 機砲', note: '側衛家族的雙座多用途型，機頭加了一對鴨翼。生命值 296，掛 6 枚 R-77 主動雷達彈和 4 枚 R-73，加速比較慢但很耐打。',
-    paint: { pattern: 2, top: '#b5bdcb', bot: '#a7b2c1', c2: '#7f8da2', c3: '#4b566d', scale: 0.36, rad: '#303236', radZ: 3.4, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
+    // blotchy camouflage like the hi-detail texture: light blue-grey base (c3, the largest share of the noise pattern),
+    // blue-grey (top) and dark blue (c2) patches
+    paint: { pattern: 1, top: '#7c8ca2', bot: '#a3b0bf', c2: '#44546c', c3: '#aebccb', scale: 0.37, rad: '#303236', radZ: 3.4, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
     // GSh-30-1: 18 rounds/s, 322 damage/s; overheats after 3.45 s of fire, cools 21 %/s, 4.76 s to recover
     st: { hp: 296, vab: 1456, vmax: 927, vtab: 741, vt: 498, vc: 828, vr: 180, vs: 288, vcl: 582, aab: 36, acc: 22, wb: 36, wh: 15, roll: 180, resp: 6,
       abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
@@ -1568,14 +1570,16 @@ const AC_DEFS = [
       a.fin([[0, 15.1, 18.63, 0.18], [3.19, 17.75, 18.93, 0.07], [3.45, 17.97, 18.35, 0.04]], { x: 1.92, y: -0.03, cant: 0, twin: true, accentFrom: 2.95 });
       a.fin([[0, 16.09, 18.47, 0.07], [-0.7, 16.93, 18.46, 0.05]], { x: 1.955, y: -0.63, cant: 0, twin: true });
       a.gun(1.05, 0.12, 8.0);
-      a.rail(7.2, 0.04, 14.6, 17.8); a.rail(-7.2, 0.04, 14.6, 17.8);
-      // same stations and launch order as the hi-detail model: wing pylons, under the intakes, the tandem pair in the tunnel,
-      // then outer wing pylons and wingtip rails
-      a.missile(-3.3, -0.43, 12.285, 'rad', true); a.missile(3.3, -0.43, 12.285, 'rad', true);
-      a.missile(-1.28, -1.65, 10.085, 'rad', true); a.missile(1.28, -1.65, 10.085, 'rad', true);
-      a.missile(0, -0.875, 10.585, 'rad'); a.missile(0, -0.875, 14.585, 'rad');
-      a.missile(-5.5, -0.38, 13.96, 'ir', true); a.missile(5.5, -0.38, 13.96, 'ir', true);
-      a.missile(-7.2, -0.062, 14.91, 'ir'); a.missile(7.2, -0.062, 14.91, 'ir');
+      // same stations, heights and launch order as the hi-detail model: wing pylons, under the intakes, the tandem pair in the
+      // tunnel, then outer wing pylons and the launch rails under the wingtips; pylons and rails as drawn under that model,
+      // reaching up to `top`
+      const pylon = (x, y, z, kind, top) => { const [L, r] = MSL_DIM[kind];
+        a.mat(MAT.GRAY); a.b.box([x, (y + r - 0.02 + top) / 2, z + L * 0.48], 0.07, top - y - r + 0.02, L * 0.5); a.mat(MAT.PAINT); };
+      for (const s of [-1, 1]) { a.missile(3.3 * s, -0.532, 12.285, 'rad'); pylon(3.3 * s, -0.532, 12.285, 'rad', 0.04); }
+      for (const s of [-1, 1]) { a.missile(1.28 * s, -1.856, 10.085, 'rad'); pylon(1.28 * s, -1.856, 10.085, 'rad', -1.22); }
+      a.missile(0, -0.888, 10.585, 'rad'); a.missile(0, -0.882, 14.585, 'rad');
+      for (const s of [-1, 1]) { a.missile(5.5 * s, -0.507, 13.96, 'ir'); pylon(5.5 * s, -0.507, 13.96, 'ir', 0.04); }
+      for (const s of [-1, 1]) { a.missile(7.35 * s, -0.247, 14.91, 'ir'); pylon(7.35 * s, -0.247, 14.91, 'ir', 0.04); }
       a.tip(7.4, 0.04, 17.6); a.tip(-7.4, 0.04, 17.6);
     },
   },
