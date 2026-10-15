@@ -72,7 +72,7 @@
 | 戰機 | 模型 | 作者 | 授權 |
 |---|---|---|---|
 | F-16 | [F16-C Falcon](https://sketchfab.com/3d-models/f16-c-falcon-4bc2ff75dc584af2afd0aa6bd8b79015) | Carlos.Maciel | CC BY 4.0 |
-| F-22 | [F22 RAPTOR](https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b) | sxnneh | Sketchfab Standard |
+| F-22 | [Lockheed Martin F-22 "Raptor"](https://sketchfab.com/3d-models/lockheed-martin-f-22-raptor-7e7b3c372e374dda98e70208d09cfdcf) | andertan | CC BY 4.0 |
 | F-14 | [F14](https://sketchfab.com/3d-models/f14-af915a32b088402f8b22e31f93af09af) | manilov.ap | CC BY 4.0 |
 | Su-27 | [Sukhoi Su-27M (USSR)](https://sketchfab.com/3d-models/sukhoi-su-27m-ussr-af788ebfb576454ca5eaac2313a30e5b) | 42manako | CC BY-NC 4.0 |
 | 颱風 | [Eurofighter Typhoon - Fighter Jet - Free](https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579) | bohmerang | CC BY-NC-SA 4.0 |
@@ -92,7 +92,6 @@
 
 - 修改內容：轉正方向與比例、移除起落架、火箭與部分座艙內裝、MiG-21 拿掉翼下副油箱、幻象的 MICA 換成遊戲裡的 Super 530D、減面、貼圖縮小並轉成 WebP、舵面與螺旋槳拆成可動零件、機尾頂端改成玩家顏色。
 - 標示 NC 的模型不可用於商業用途；標示 SA 的模型，改作後的檔案（`models/typhoon.bin`、`models/mig21.bin`）同樣以 CC BY-NC-SA 4.0 釋出。
-- F-22 模型是 Sketchfab Standard 授權，只能作為作品的一部分使用，不可把模型檔單獨拿去散布。
 - 電腦比較慢的話，網址加 `?lowpoly` 改用簡易模型。
 
 ## 技術說明
