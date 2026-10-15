@@ -89,7 +89,8 @@ CFG = {
                    bones=[dict(kind='canard', side=s, tbox=dict(x=(1.2, 2.3), y=(0.04, 0.3), z=(-3.2, -0.9)), xsign=s) for s in (-1, 1)]
                         + [dict(kind='elevon', side=s, tbox=dict(x=(1.25, 2.62), y=(-0.7, 0.1), z=(4.0, 5.3)), xsign=s) for s in (-1, 1)]
                         + [dict(kind='elevon', side=s, tbox=dict(x=(2.62, 4.55), y=(-0.7, 0.1), z=(4.0, 5.3)), xsign=s) for s in (-1, 1)]
-                        + [dict(kind='rud', side=0, tbox=dict(x=(0, 0.25), y=(0.62, 2.6), z=(4.6, 7.4), half=((0, 1.0, 5.43), (0, -0.6, 1))))]),
+                        + [dict(kind='rud', side=0, tbox=dict(x=(0, 0.25), y=(0.62, 2.6), z=(4.6, 7.4), half=((0, 1.0, 5.43), (0, -0.6, 1))),
+                                pivot=(-0.008, 0.62, 5.202), axis=(0, 1, 0.6))]),     # the hinge line on the fin mid-plane (x -0.008)
 
     'su30': dict(yaw=90, tex=2048, credit=dict(title='Sukhoi Su-30 flanker c', author='andertan', license='CC BY 4.0',
                                                url='https://sketchfab.com/3d-models/sukhoi-su-30-flanker-c-92ca062c90fd45ffb6ce8144dc46004a'),
@@ -337,6 +338,8 @@ def build(name):
             d = B - A; d /= np.linalg.norm(d)
             if d[1] < 0: d = -d
             pivot = [float(v) for v in A]; axis = [float(v) for v in d]
+            if 'pivot' in bc:   # hinge line by hand: A is a skin vertex, not on the fin mid-plane
+                pivot = [float(v) for v in bc['pivot']]; d = np.array(bc['axis'], float); axis = [float(v) for v in d / np.linalg.norm(d)]
         elif kind == 'hide':
             # kept in the file but folded to a point inside the airframe when drawn (stores the game does not carry)
             pivot = [float(v) for v in bc.get('pivot', (0.0, 0.0, 0.0))]; axis = [1.0, 0.0, 0.0]
