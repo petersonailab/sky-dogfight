@@ -214,41 +214,59 @@ const AC_DEFS = [
   {
     id: 'su30', era: 'jet', name: 'Su-30 側衛-C', en: 'SU-30 FLANKER-C', country: '俄羅斯', first: 1989, len: 21.935, span: 14.7, flame: 'ru',
     gun: 'GSh-30-1 30 mm 機砲', note: '側衛家族的雙座多用途型，機頭加了一對鴨翼。生命值 296，掛 6 枚 R-77 主動雷達彈和 4 枚 R-73，加速比較慢但很耐打。',
-    paint: { pattern: 2, top: '#8ea2b3', bot: '#b9c6d0', c2: '#647a8e', c3: '#a9b9c6', scale: 0.36, rad: '#2c2f33', radZ: 1.6, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
+    // blotchy camouflage like the hi-detail texture: light blue-grey base (c3, the largest share of the noise pattern),
+    // blue-grey (top) and dark blue (c2) patches
+    paint: { pattern: 1, top: '#7c8ca2', bot: '#a3b0bf', c2: '#44546c', c3: '#aebccb', scale: 0.37, rad: '#303236', radZ: 3.4, glass: '#2c3a48', metal: 0.05, gloss: 0.3 },
     // GSh-30-1: 18 rounds/s, 322 damage/s; overheats after 3.45 s of fire, cools 21 %/s, 4.76 s to recover
     st: { hp: 296, vab: 1456, vmax: 927, vtab: 741, vt: 498, vc: 828, vr: 180, vs: 288, vcl: 582, aab: 36, acc: 22, wb: 36, wh: 15, roll: 180, resp: 6,
       abFuel: 18.0, abRegen: 14.4, flareCd: 1.5, flareDur: 1.6, detect: 3.0, radar: 12, scan: 33,
       gunRate: 18, gunDmg: 322 / 18 / 1.35, bullet: 1150, spread: 0.5, heat: { t: 3.45, cool: 0.21, lock: 4.76 } },
     loadout: [['r77', 6], ['r73', 4]],
+    // after the hi-detail model (andertan): drooped nose, long two-seat canopy, wide LERX with the canards at their
+    // trailing end, box intakes under the LERX, round nacelles, flat centre body ending in a long tail sting
     build(a) {
+      a.mat(MAT.GRAY); a.b.cyl([0, -0.6, 0], [0, -0.6, 0.6], 0.012, 0.025, { seg: 6 }); a.mat(MAT.PAINT); // pitot
       a.body([
-        { z: 0, w: 0.03, h: 0.03, y: -0.18 }, { z: 1.0, w: 0.33, h: 0.33, y: -0.12 }, { z: 2.4, w: 0.55, h: 0.55, y: -0.03 },
-        { z: 4.0, w: 0.66, h: 0.7, hb: 0.6, y: 0.06 }, { z: 6.2, w: 0.76, h: 0.72, hb: 0.62, y: 0.07 }, { z: 8.6, w: 0.9, h: 0.58, hb: 0.5, n: 2.4 },
-        { z: 11.0, w: 0.92, h: 0.45, hb: 0.4, n: 2.8 }, { z: 15.0, w: 0.82, h: 0.38, hb: 0.35, n: 3 }, { z: 18.0, w: 0.5, h: 0.32, hb: 0.3 },
-        { z: 20.5, w: 0.32, h: 0.26, hb: 0.24 }, { z: 22.0, w: 0.16, h: 0.16, y: 0.02 },
+        { z: 0.55, w: 0.07, h: 0.07, y: -0.56 }, { z: 0.95, w: 0.19, h: 0.18, y: -0.52 }, { z: 1.5, w: 0.37, h: 0.36, y: -0.44 },
+        { z: 2.4, w: 0.56, h: 0.55, y: -0.32 }, { z: 3.4, w: 0.67, h: 0.66, y: -0.2 }, { z: 4.4, w: 0.74, h: 0.62, hb: 0.64, y: -0.12 },
+        { z: 5.9, w: 0.82, h: 0.62, hb: 0.64, y: -0.02 }, { z: 7.4, w: 0.95, h: 0.62, hb: 0.6, y: 0.07 }, { z: 8.9, w: 1.0, h: 0.62, hb: 0.55, y: 0.09, n: 2.4 },
+        { z: 10.4, w: 1.0, h: 0.5, hb: 0.54, y: 0.09, n: 2.6 }, { z: 11.4, w: 0.95, h: 0.55, hb: 0.76, n: 2.6 }, { z: 13.4, w: 0.9, h: 0.35, hb: 0.78, n: 2.6 },
+        { z: 15.4, w: 0.75, h: 0.15, hb: 0.78, n: 2.4 }, { z: 18.0, w: 0.5, h: 0.05, hb: 0.74 }, { z: 20.4, w: 0.32, h: 0.32, hb: 0.35, y: -0.43 },
+        { z: 21.0, w: 0.26, h: 0.3, y: -0.45 }, { z: 21.5, w: 0.16, h: 0.18, y: -0.47 }, { z: 21.94, w: 0.03, h: 0.03, y: -0.48 },
       ]);
+      // dorsal spine from the canopy back to the wing root, and the two-seat canopy with a frame between the cockpits
+      a.loft([{ z: 7.25, w: 0.53, h: 1.01, hb: 0.2, y: 0.55 }, { z: 8.4, w: 0.55, h: 0.88, hb: 0.3, y: 0.55 }, { z: 9.4, w: 0.5, h: 0.65, hb: 0.3, y: 0.55 },
+        { z: 10.4, w: 0.45, h: 0.45, hb: 0.3, y: 0.55 }, { z: 11.4, w: 0.42, h: 0.25, hb: 0.3, y: 0.52 }, { z: 12.6, w: 0.38, h: 0.0, hb: 0.3, y: 0.42 }], { seg: 18 });
+      a.loft([{ z: 3.65, w: 0.36, h: 0.01, hb: 0.02, y: 0.5 }, { z: 4.4, w: 0.47, h: 0.43, hb: 0.15, y: 0.52 }, { z: 5.4, w: 0.51, h: 0.78, hb: 0.18, y: 0.54 },
+        { z: 6.4, w: 0.52, h: 0.95, hb: 0.2, y: 0.55 }, { z: 7.2, w: 0.5, h: 1.0, hb: 0.2, y: 0.55 }, { z: 7.8, w: 0.42, h: 0.9, hb: 0.2, y: 0.55 }], { mat: MAT.GLASS, seg: 18 });
+      a.loft([{ z: 5.72, w: 0.525, h: 0.855, hb: 0.1, y: 0.545 }, { z: 5.8, w: 0.525, h: 0.86, hb: 0.1, y: 0.545 }], { cap0: false, cap1: false, seg: 18 });
       for (const s of [1, -1]) {
-        a.loft([{ z: 7.4, w: 0.55, h: 0.58, y: -0.62, n: 5 }, { z: 9.0, w: 0.58, h: 0.62, y: -0.6, n: 4 }, { z: 13.0, w: 0.62, h: 0.6, y: -0.55, n: 2.6 },
-          { z: 18.0, w: 0.6, h: 0.58, y: -0.55, n: 2.2 }, { z: 19.6, w: 0.56, h: 0.54, y: -0.55 }], { x: 1.18 * s, cap0: false, cap1: false, seg: 16 });
-        a.face([1.18 * s, -0.62, 7.48], 0.5, 0.52, 5);
-        a.nozzle(1.18 * s, -0.55, 19.5, 0.55, 0.5, 0.85);
+        a.loft([{ z: 9.4, w: 0.6, h: 0.55, y: -0.68, n: 4 }, { z: 10.4, w: 0.63, h: 0.58, y: -0.7, n: 4 }, { z: 13.4, w: 0.65, h: 0.6, y: -0.67, n: 3 },
+          { z: 15.4, w: 0.66, h: 0.63, y: -0.6, n: 2.4 }, { z: 17.4, w: 0.68, h: 0.68, y: -0.58 }, { z: 19.95, w: 0.62, h: 0.62, y: -0.58 }], { x: 1.28 * s, cap0: false, cap1: false, seg: 16 });
+        a.face([1.28 * s, -0.68, 9.46], 0.56, 0.52, 4);
+        a.nozzle(1.28 * s, -0.58, 19.9, 0.62, 0.56, 0.81);
+        a.loft([{ z: 14.9, w: 0.03, h: 0.08, y: -0.36 }, { z: 15.5, w: 0.06, h: 0.26, y: -0.39 }, { z: 19.2, w: 0.06, h: 0.26, y: -0.39 }, { z: 19.8, w: 0.03, h: 0.1, y: -0.45 }], { x: 1.92 * s, seg: 8 }); // tail beam
       }
-      a.wing([[0.6, 4.6, 17.6, 0.4], [1.6, 7.6, 17.4, 0.38], [2.4, 9.8, 17.2, 0.36], [2.9, 10.9, 17.0, 0.33], [7.3, 14.9, 16.45, 0.1]], { y: -0.05 });
-      const cR = a.bone('canard', [1.25, 0.1, 6.6], [1, 0, 0], 1), cL = a.bone('canard', [-1.25, 0.1, 6.6], [1, 0, 0], -1);
-      a.wing([[0.9, 5.7, 7.3, 0.08], [2.9, 6.9, 7.4, 0.04]], { y: 0.1, bones: [cR, cL] });
-      const sR = a.bone('stab', [3.0, -0.4, 19.6], [1, 0, 0], 1), sL = a.bone('stab', [-3.0, -0.4, 19.6], [1, 0, 0], -1);
-      a.wing([[1.8, 17.6, 20.8, 0.14], [4.6, 20.0, 21.2, 0.05]], { y: -0.4, bones: [sR, sL] });
-      a.fin([[0, 15.2, 19.4, 0.2], [3.3, 18.2, 19.75, 0.08]], { x: 2.05, y: 0.0, cant: 0, twin: true, accentFrom: 2.35 });
-      a.fin([[0, 16.0, 18.4, 0.07], [-0.85, 17.3, 18.6, 0.05]], { x: 1.72, y: -1.0, cant: -6, twin: true });
-      a.canopy(5.0, 0.66, 0.46, 0.6, 2.3);
-      a.gun(1.0, 0.18, 7.0);
-      a.rail(7.42, -0.05, 14.2, 17.0); a.rail(-7.42, -0.05, 14.2, 17.0);
-      a.missile(-4.4, -0.42, 12.3, 'rad', true); a.missile(4.4, -0.42, 12.3, 'rad', true);
-      a.missile(-1.18, -1.32, 10.0, 'rad'); a.missile(1.18, -1.32, 10.0, 'rad');
-      a.missile(-0.4, -0.72, 9.0, 'rad'); a.missile(0.4, -0.72, 9.0, 'rad');
-      a.missile(-5.7, -0.38, 13.4, 'ir', true); a.missile(5.7, -0.38, 13.4, 'ir', true);
-      a.missile(-7.5, -0.05, 13.9, 'ir'); a.missile(7.5, -0.05, 13.9, 'ir');
-      a.tip(7.5, -0.05, 16.5); a.tip(-7.5, -0.05, 16.5);
+      a.wing([[0.7, 4.6, 16.6, 0.3], [0.95, 5.9, 16.7, 0.3], [1.21, 7.41, 16.75, 0.28], [1.42, 7.91, 16.78, 0.27], [1.81, 8.41, 16.82, 0.26], [1.94, 10.41, 16.83, 0.25],
+        [2.08, 10.91, 16.84, 0.24], [7.4, 15.72, 17.8, 0.06]], { y: 0.03 });
+      const cR = a.bone('canard', [1.8, -0.07, 9.07], [1, 0, 0], 1), cL = a.bone('canard', [-1.8, -0.07, 9.07], [1, 0, 0], -1);
+      a.wing([[1.82, 8.44, 10.23, 0.1], [3.28, 10.38, 10.88, 0.04]], { y: -0.1, dih: 5, bones: [cR, cL] });
+      const sR = a.bone('stab', [1.95, -0.6, 18.44], [1, 0, 0], 1), sL = a.bone('stab', [-1.95, -0.6, 18.44], [1, 0, 0], -1);
+      a.wing([[1.95, 17.26, 19.68, 0.1], [2.3, 17.56, 20.62, 0.09], [4.5, 19.43, 20.83, 0.05], [5.02, 19.87, 20.05, 0.03]], { y: -0.6, bones: [sR, sL] });
+      a.fin([[0, 15.1, 18.63, 0.18], [3.19, 17.75, 18.93, 0.07], [3.45, 17.97, 18.35, 0.04]], { x: 1.92, y: -0.03, cant: 0, twin: true, accentFrom: 2.95 });
+      a.fin([[0, 16.09, 18.47, 0.07], [-0.7, 16.93, 18.46, 0.05]], { x: 1.955, y: -0.63, cant: 0, twin: true });
+      a.gun(1.05, 0.12, 8.0);
+      // same stations, heights and launch order as the hi-detail model: wing pylons, under the intakes, the tandem pair in the
+      // tunnel, then outer wing pylons and the launch rails under the wingtips; pylons and rails as drawn under that model,
+      // reaching up to `top`
+      const pylon = (x, y, z, kind, top) => { const [L, r] = MSL_DIM[kind];
+        a.mat(MAT.GRAY); a.b.box([x, (y + r - 0.02 + top) / 2, z + L * 0.48], 0.07, top - y - r + 0.02, L * 0.5); a.mat(MAT.PAINT); };
+      for (const s of [-1, 1]) { a.missile(3.3 * s, -0.532, 12.285, 'rad'); pylon(3.3 * s, -0.532, 12.285, 'rad', 0.04); }
+      for (const s of [-1, 1]) { a.missile(1.28 * s, -1.856, 10.085, 'rad'); pylon(1.28 * s, -1.856, 10.085, 'rad', -1.22); }
+      a.missile(0, -0.888, 10.585, 'rad'); a.missile(0, -0.882, 14.585, 'rad');
+      for (const s of [-1, 1]) { a.missile(5.5 * s, -0.507, 13.96, 'ir'); pylon(5.5 * s, -0.507, 13.96, 'ir', 0.04); }
+      for (const s of [-1, 1]) { a.missile(7.35 * s, -0.247, 14.91, 'ir'); pylon(7.35 * s, -0.247, 14.91, 'ir', 0.04); }
+      a.tip(7.4, 0.04, 17.6); a.tip(-7.4, 0.04, 17.6);
     },
   },
   {
