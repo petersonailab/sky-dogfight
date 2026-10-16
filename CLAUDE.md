@@ -30,7 +30,7 @@
 - 常用測試：
   - `python3 test/sim2.py 60 jet 7`、`python3 test/sim2.py 60 prop 6`：AI 混戰 60 秒，檢查 NaN、撞地、武器使用
   - `python3 test/mp.py`：兩個分頁連機（模擬 room）；`python3 test/webmp.py`：真正的 MQTT／WebRTC 流程（會自己開 `node test/mqtt_broker.js`）
-  - `python3 test/reloadtest.py`：飛彈補充與熱焰彈冷卻；`python3 test/guntest.py`：機砲過熱、MICA 鎖定時間、雷達與鎖定距離
+  - `python3 test/reloadtest.py`：飛彈補充與熱焰彈冷卻；`python3 test/guntest.py`：機砲過熱、MICA 鎖定時間、雷達與鎖定距離；`python3 test/inputtest.py`：手機搖桿與按鈕（多指觸控、手指滑出、被系統取消）和各種滑鼠滾輪換彈
   - 外觀截圖：`test/hdview.py <stores|flames|prop|propfront|close> <機型…>`、`test/hdsurf2.py`（舵面）、`test/mslfly.py`（飛行中的飛彈）、`test/procshots.py`（程式模型）、`test/hdshots.py`（機庫）
   - `test/perfhd.py`：精細模型與程式模型的畫面時間比較
 
@@ -41,6 +41,10 @@
 - `perfOf()` 把表上的數值（km/h、°/s）換成飛行模型參數。
 - 飛彈補充：`src/75_game.js` 的 `RELOAD_RAD`、`RELOAD_IR`（目前都是 7 秒補 1 枚）。熱焰彈冷卻：每架的 `st.flareCd`（噴射機都是 1.5 秒）。
 - 尾焰：`def.flame: 'ru'` 是藍色（Su-27、MiG-21），其他是橘紅色，顏色在 `src/10_gl.js` 的 `FLAME_PAL`。
+
+## 操作
+- 手機（有 touch events 的瀏覽器）的搖桿和按鈕用 touch events、依手指的 identifier 追蹤，不用 pointer events：iPhone Safari 上拖曳中的 pointer 事件可能中斷或收不到放開，搖桿會卡住。每次 touchend／touchcancel 都檢查還在螢幕上的手指，沒有手指就放開。
+- 滾輪換彈：每個捲動手勢（停 250 毫秒算結束）換一次，任何捲動量都算（Firefox 用行、macOS 和觸控板一開始很小）。
 
 ## 精細模型
 - 有精細模型的：F-16、F-22、F-15E、F-14、Su-27、Su-30、颱風、陣風、幻象 2000、MiG-21、P-51、噴火、Bf 109，加上飛彈庫 `models/missiles.bin`。經國號和零戰只有程式模型（依三視圖做的，機徽用塗裝的 `marks`）。

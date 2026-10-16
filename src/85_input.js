@@ -3,7 +3,7 @@ const Input = {
   keys: Object.create(null), mx: 0, my: 0, mouseIn: false, lmb: false, rmbEdge: false,
   locked: false, lockFailed: false, aimYaw: 0, aimPitch: 0, aimDir: new V3(0, 0, -1), aimInit: false,
   touch: false, stick: { id: -1, ox: 0, oy: 0, x: 0, y: 0 }, tGun: false, tAB: false, thrT: 0.85,
-  edge: Object.create(null), scheme: 'mouse',
+  edge: Object.create(null), scheme: 'mouse', wheelT: -1e9, wheelDone: false, wheelEdge: false,
   init() {
     const cv = R.cv;
     window.addEventListener('keydown', e => {
@@ -34,13 +34,15 @@ const Input = {
     });
     window.addEventListener('mouseup', e => { if (e.button === 0) this.lmb = false; });
     cv.addEventListener('contextmenu', e => e.preventDefault());
-    // one switch per scroll gesture (trackpads send dozens of wheel events)
+    // one switch per scroll gesture: a mouse notch, or a whole trackpad swipe (dozens of events, the first ones tiny);
+    // a gesture ends after a short pause. Any movement counts: Firefox reports a notch as 3 lines, macOS as a few pixels
     cv.addEventListener('wheel', e => {
       if (!Game.active || UI.paused) return;
       e.preventDefault();
       const now = performance.now();
-      if (Math.abs(e.deltaY) > 4 && now - (this.wheelT || 0) > 450) this.wheelEdge = true;
+      if (now - this.wheelT > 250) this.wheelDone = false;
       this.wheelT = now;
+      if (!this.wheelDone && (e.deltaY || e.deltaX)) { this.wheelEdge = true; this.wheelDone = true; }
     }, { passive: false });
     document.addEventListener('pointerlockchange', () => {
       const was = this.locked;
@@ -126,20 +128,51 @@ const Input = {
     const area = $('stickArea'), knob = $('stickKnob'), base = $('stickBase');
     if (!area) return;
     const S = this.stick;
-    area.addEventListener('pointerdown', e => {
-      if (S.id >= 0) return; AU.init();
-      S.id = e.pointerId; S.ox = e.clientX; S.oy = e.clientY; S.x = 0; S.y = 0;
-      area.setPointerCapture(e.pointerId);
-      base.style.left = (e.clientX - 60) + 'px'; base.style.top = (e.clientY - 60) + 'px'; base.hidden = false;
+    const grab = (id, x, y) => {
+      AU.init(); S.id = id; S.ox = x; S.oy = y; S.x = 0; S.y = 0;
+      base.style.left = (x - 60) + 'px'; base.style.top = (y - 60) + 'px'; base.hidden = false;
       knob.style.transform = 'translate(0px,0px)';
-    });
-    const move = e => { if (e.pointerId !== S.id) return; S.x = clamp(e.clientX - S.ox, -60, 60); S.y = clamp(e.clientY - S.oy, -60, 60); knob.style.transform = `translate(${S.x}px,${S.y}px)`; };
-    const end = e => { if (e.pointerId !== S.id) return; S.id = -1; S.x = S.y = 0; base.hidden = true; };
-    area.addEventListener('pointermove', move); area.addEventListener('pointerup', end); area.addEventListener('pointercancel', end);
+    };
+    const drag = (x, y) => { S.x = clamp(x - S.ox, -60, 60); S.y = clamp(y - S.oy, -60, 60); knob.style.transform = `translate(${S.x}px,${S.y}px)`; };
+    const drop = () => { S.id = -1; S.x = S.y = 0; base.hidden = true; };
+    const holds = [];   // per hold button: release it unless its finger is still among these touches
+    // Where the browser has touch events (phones, tablets) every finger is followed by its own touch identifier:
+    // on iPhone Safari the pointer events of a dragged finger could stop arriving, or lose their release, while
+    // other fingers worked the buttons, which left the stick frozen or stuck. A finger that is no longer on the
+    // screen never holds anything: every touchend/touchcancel checks the remaining touches.
+    const useTouch = 'ontouchstart' in window;
+    const find = (list, id) => { for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i]; return null; };
+    if (useTouch) {
+      area.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (S.id >= 0 && find(e.touches, S.id)) return;   // already steering with another finger
+        const t = e.changedTouches[0]; grab(t.identifier, t.clientX, t.clientY);
+      }, { passive: false });
+      // the finger may slide off the stick area, so moves and releases are followed on the whole page
+      window.addEventListener('touchmove', e => { const t = S.id >= 0 && find(e.changedTouches, S.id); if (t) drag(t.clientX, t.clientY); }, { passive: true });
+      const lift = e => { if (S.id >= 0 && !find(e.touches, S.id)) drop(); for (const h of holds) h(e.touches); };
+      // touchend also counts as a user gesture on iOS: a good moment to resume sound after an interruption
+      window.addEventListener('touchend', e => { if (Game.active) AU.init(); lift(e); }); window.addEventListener('touchcancel', lift);
+    } else {
+      area.addEventListener('pointerdown', e => {
+        if (S.id >= 0) return;
+        area.setPointerCapture(e.pointerId); grab(e.pointerId, e.clientX, e.clientY);
+      });
+      const move = e => { if (e.pointerId === S.id) drag(e.clientX, e.clientY); };
+      const end = e => { if (e.pointerId === S.id) drop(); };
+      area.addEventListener('pointermove', move); area.addEventListener('pointerup', end); area.addEventListener('pointercancel', end);
+      area.addEventListener('lostpointercapture', end);
+    }
     const hold = (id, on, off) => { const el = $(id); if (!el) return;
-      el.addEventListener('pointerdown', e => { e.preventDefault(); AU.init(); el.setPointerCapture(e.pointerId); el.classList.add('on'); on(); });
-      const up = () => { el.classList.remove('on'); if (off) off(); };
-      el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
+      const press = () => { AU.init(); el.classList.add('on'); on(); }, up = () => { el.classList.remove('on'); if (off) off(); };
+      if (useTouch) {
+        let tid = null;
+        el.addEventListener('touchstart', e => { e.preventDefault(); if (tid !== null) return; tid = e.changedTouches[0].identifier; press(); }, { passive: false });
+        holds.push(touches => { if (tid !== null && !find(touches, tid)) { tid = null; up(); } });
+      } else {
+        el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); press(); });
+        el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+      } };
     hold('tGun', () => { this.tGun = true; }, () => { this.tGun = false; });
     hold('tMsl', () => { if (Game.me) Game.me.ctrl.msl = true; });
     hold('tFlare', () => { if (Game.me) Game.me.ctrl.flare = true; });
